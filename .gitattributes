@@ -1,0 +1,12 @@
+# Satır sonları repoda LF olarak saklanır; Windows'ta checkout sırasında CRLF'e çevrilir.
+# (STM32CubeIDE dosyaları CRLF üretir; bu kural olmadan Windows ve Linux'ta sahte "değişti" görünür.)
+* text=auto
+
+# İkili dosyalar
+*.png binary
+*.jpg binary
+*.pdf binary
+*.elf binary
+*.bin binary
+*.hex binary
+*.a   binary

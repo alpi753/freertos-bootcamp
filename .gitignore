@@ -1,0 +1,17 @@
+# --- STM32CubeIDE / Eclipse (çalışma alanı ve derleme çıktıları) ---
+**/.metadata/
+**/Debug/
+**/Release/
+
+# --- Derleme sırasında üretilen dosyalar ---
+**/build_info.h
+
+# --- Kartsız birim testleri ---
+**/tests_host/build/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
