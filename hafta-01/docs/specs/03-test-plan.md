@@ -3,7 +3,7 @@
 | Alan | Değer |
 |---|---|
 | Doküman | `hafta-01/docs/specs/03-test-plan.md` |
-| Sürüm | 1.1 (ONAYLANDI — 2026-09-26) |
+| Sürüm | 1.2 (ONAYLANDI — 2026-09-26) |
 | Tarih | 2026-09-25 |
 | Girdi | `01-requirements.md` v1.2, `02-design.md` v1.1 |
 | Çıktı | `docs/test-results.md` (test sonuçları), `measurements/`, `analysis/` (kanıtlar) |
@@ -136,7 +136,7 @@ Otomatik olanlar `hil_check.py --tc <ID>` ile çalışır. Betik komutları gön
 | **T06** Sıcaklık | S1, 30 s | TEL değerleri oda sıcaklığı civarında (150…450, yani 15…45 °C) ve iki ardışık okuma farkı ≤ 2 °C; CAL'da `adc_mean_us` raporlanmış | TSK-08 |
 | **T07** Buton her durumda | (Op) IDLE'da 2, RUNNING'de 3, STOPPED'da 2 kez bas | IDLE/STOPPED: `BTN,0,...`. RUNNING: `BTN,1`, `BTN,2`, `BTN,3`. DUMP'ta tam 3 REC | TSK-05, TSK-05a, UI-03 |
 | **T08** Debounce | (Op) S0 koşusunda 20 kez, aralıklarla bas; basışları kendin say | Olay sayısı = 20; `bounce_rej` raporlanmış (0 da olabilir) | ISR-03 |
-| **T09** ISR süresi | Debug derleme; ISR giriş/çıkışında DWT ile ölçen geçici kod; 20 basış; CubeIDE *Live Expressions*'da en büyük değer | En büyük ISR süresi ≤ 5 µs (400 cycle) | ISR-04 |
+| **T09** ISR süresi | EXTI kesmesinin ilk ve son satırında DWT okuyan ölçüm (`APP_EXTI_TIMING_*`, her derlemede açık). **Release** derleme (-Os, hata ayıklama bilgisi -g3 ile); en az 20 basış; *Live Expressions*'da `g_btn_diag.isr_max_ns`. Debug'da da ölçülür ama yalnızca bilgi amaçlıdır | Release'te en büyük ISR süresi ≤ 5 µs (400 çevrim) | ISR-04 |
 | **T10** Komut protokolü | Otomatik dizi: `SCN,3` → `START` → `SCN,2` → `STOP` → `STOP` → `DUMP` → `SCN,9` → `XYZ` | Sırasıyla ACK, ACK, **NAK,BUSY**, ACK, **NAK,STATE**, ACK…END, **NAK,ARG**, **NAK,CMD** | MSG-07, MSG-08 |
 | **T11** Koşu sırasında sessizlik | T02'nin kaydı | START ile STOP arasında yalnızca TEL/BTN/ACK tipleri var | TIM-05 |
 | **T12** Döküm bütünlüğü | (Op) S2 koşusunda 5 basış → STOP → DUMP → tekrar DUMP | 5 REC + 5 PRE + SUM + CAL + MEM + RTS + END. `SUM.events = 5`. Her olayda t₀ ≤ t₁ ≤ t₂ ≤ t₃ ≤ t₄. İki döküm bayt bayt aynı | MSG-05, MSG-06, TIM-02 |
@@ -332,7 +332,7 @@ Tasarım §12'deki her adım, aşağıdaki testler geçmeden tamamlanmış sayı
 | # | Konu | Öneri |
 |---|---|---|
 | TQ-1 | Hangi firmware'in ölçüldüğünü kanıtlamak | **Kapandı:** VER çerçevesi eklendi (MSG-09, tasarım §9); V6 logdan doğrulanır |
-| TQ-2 | T09 (ISR süresi) Debug derlemede ölçülüyor | Debug -O0 süreyi büyütür, yani ölçüt Debug'da tutuyorsa Release'te de tutar. Bu yüzden Debug yeterli. |
+| TQ-2 | T09 hangi derlemede ölçülür? | **Kapandı:** Release'te. İlk varsayım ("Debug'da tutuyorsa Release'te de tutar") yalnızca tek yönde doğru: Debug'da kalan bir süre Release'te geçebilir. Debug ölçümü 9,46 µs çıkınca ölçütün ölçüm derlemesi olan Release'te değerlendirilmesine karar verildi. |
 
 ## 12. Değişiklik geçmişi
 
@@ -341,3 +341,4 @@ Tasarım §12'deki her adım, aşağıdaki testler geçmeden tamamlanmış sayı
 | 0.1 | 2026-09-25 | İlk taslak |
 | 1.0 | 2026-09-25 | Kursiyer onayı; TQ-1 kabul edildi (VER, MSG-09) |
 | 1.1 | 2026-09-26 | §10: U02 ve U05 adım 4'e alındı (komut kanalı ve ADC okuma öne çekildi) |
+| 1.2 | 2026-09-26 | T09 Release derlemede değerlendirilir; TQ-2 düzeltildi |

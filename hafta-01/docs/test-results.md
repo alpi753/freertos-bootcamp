@@ -20,3 +20,15 @@ Test tanımları: [`specs/03-test-plan.md`](specs/03-test-plan.md). Her satır b
 | TC-T11 | 2026-09-26 | adım 4 commit'i | Debug | GEÇTİ | `hil_check.py --secs 60` [log](test-results/raw/adim4-2026-09-26_130827.log): Koşu (ACK START…ACK STOP) içinde görülen tipler: ACK, TEL |  |
 | TC-T14 | 2026-09-26 | adım 4 commit'i | Debug | GEÇTİ | `hil_check.py --secs 60` [log](test-results/raw/adim4-2026-09-26_130827.log): SUM q_hw = 1 (ölçüt 1…16) |  |
 | (deneme) hil_check adim4 | 2026-09-26 | adım 4 commit'i | Debug | GEÇTİ | `--secs 10` [log](test-results/raw/adim4-2026-09-26_130002.log) | Resmi değil; test planı 60 s istiyor. |
+| TC-T07 | 2026-09-26 | adım 5 commit'i | Debug | GEÇTİ | `hil_check.py --tc T07` [log](test-results/raw/T07-2026-09-26_142351.log): IDLE 2 × `BTN,0`; RUNNING `BTN,1/2/3`; STOPPED 2 × `BTN,0`; SUM events 3, btn_dropped 0 | DUMP'taki REC sayısı kontrolü adım 6'da (T12) eklenecek. |
+| TC-T08 | 2026-09-26 | adım 5 commit'i | Debug | GEÇTİ | `hil_check.py --tc T08` [log](test-results/raw/T08-2026-09-26_142500.log): operatör sayımı 20 = kabul edilen olay 20 = gelen BTN 20; bounce_rej 0 | Karışık (hızlı/yavaş/uzun) basışlar. |
+| TC-T09 (Debug, bilgi) | 2026-09-26 | adım 5 commit'i | Debug (-O0) | KALDI | [Live Expressions](test-results/ui/T09-debug-2026-09-26.png): `isr_max_cycles = 757` → `isr_max_ns = 9462` (ölçüt ≤ 5000); `isr_count = accepted = 27`, `overrun = 0` | Test planı 1.2 ile ölçüt Release'e taşındı; bu satır bilgi amaçlı. `isr_count = accepted` → hiçbir sıçrama kenarı kesmeye ulaşmadı. |
+| TC-T09 | 2026-09-26 | adım 5 commit'i | Release (-Os, -g3) | KALDI | [Live Expressions](test-results/ui/T09-release-2026-09-26.png): 20 basış, `isr_max_cycles = 454` → `isr_max_ns = 5675` (ölçüt ≤ 5000); `isr_last_cycles = 454`; `isr_count = accepted = 20`, `overrun = 0` | Her basışta aynı süre (454 çevrim). Yol ~200 komut (EXTI handler + HAL + callback + debounce + `vTaskNotifyGiveFromISR`); kalan payın flash bekleme durumlarından (80 MHz'de 4 wait state) ve soğuk önbellekten geldiği tahmin ediliyor — doğrulanmadı. Karar bekleniyor. |
+
+## Sapmalar (karşılanmayan gereksinimler)
+
+Bir gereksinim karşılanmadığında gereksinim veya ölçüt sonradan değiştirilmez; sapma burada gerekçesiyle kayıt altına alınır.
+
+| ID | Gereksinim | Öncelik | Ölçülen | Ölçüt | Karar | Tarih |
+|---|---|---|---|---|---|---|
+| DEV-01 | ISR-04 (buton ISR süresi) | S | 5,68 µs (454 çevrim, Release) | ≤ 5 µs | Kabul edildi, düzeltme yapılmadı. 5 µs değeri tasarım sırasında tahminle konmuştu, kurs gereksinimi değil. ISR süresi t₁−t₀ (`d_EventToRun`) içinde ölçülmeye devam ediyor. Olası iyileştirmeler (ileride): kesme yolunu RAM'e taşımak, HAL EXTI katmanını atlamak. | 2026-09-26 |

@@ -22,6 +22,8 @@
 #include "stm32l4xx_it.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "app_ts.h"
+#include "app_button.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -195,10 +197,13 @@ void USART2_IRQHandler(void)
 void EXTI15_10_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI15_10_IRQn 0 */
+  g_exti_ts = ts_now();          /* t₀ adayı: HAL'den ÖNCE, handler'ın ilk işi (tasarım §7.1) */
+  APP_EXTI_TIMING_BEGIN();       /* TC-T09 */
 
   /* USER CODE END EXTI15_10_IRQn 0 */
   HAL_GPIO_EXTI_IRQHandler(B1_Pin);
   /* USER CODE BEGIN EXTI15_10_IRQn 1 */
+  APP_EXTI_TIMING_END();
 
   /* USER CODE END EXTI15_10_IRQn 1 */
 }

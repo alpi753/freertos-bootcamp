@@ -7,6 +7,8 @@ Kullanım (Windows örneği):
     py -m pip install -r interface/requirements.txt
     py interface/tools/hil_check.py --port COM5 --tc adim4
     py interface/tools/hil_check.py --port COM5 --tc T03 --secs 10     # hızlı deneme
+    py interface/tools/hil_check.py --port COM5 --tc T07               # etkileşimli: butona sen basarsın
+    py interface/tools/hil_check.py --port COM5 --tc T08
 
 Her koşu ham UART kaydını docs/test-results/raw/<TC>-<tarih>.log dosyasına yazar.
 Satır biçimi:  <PC ms>\t<çerçeve>   (PC zamanı yalnızca hata ayıklama içindir;
@@ -155,10 +157,96 @@ def tc_t14(r):
     return check("T14 kuyruk dolulugu", 1 <= q <= TXQ_DEPTH, f"q_hw = {q} (1..{TXQ_DEPTH})")
 
 
+# ---- Etkileşimli testler (operatör butona basar) ---------------------------
+
+def say(msg):
+    print(f"\n>>> {msg}", flush=True)
+
+
+def collect_btn(link, n, timeout=90.0, settle=1.5):
+    """n adet BTN gelene kadar bekler, sonra settle s daha dinler (fazladan BTN = sıçrama)."""
+    got = []
+    end = time.monotonic() + timeout
+    while len(got) < n and time.monotonic() < end:
+        for f in link.pump():
+            if f.startswith(b"BTN,"):
+                got.append(fields(f))
+                print(f"    BTN alindi: olay {got[-1][1]} ({len(got)}/{n})", flush=True)
+    end = time.monotonic() + settle
+    while time.monotonic() < end:
+        for f in link.pump():
+            if f.startswith(b"BTN,"):
+                got.append(fields(f))
+                print(f"    FAZLADAN BTN: olay {got[-1][1]}", flush=True)
+    return got
+
+
+def dump_sum(link):
+    i = len(link.frames)
+    link.send("CMD,DUMP")
+    link.wait_for("END,DUMP")
+    f = next(fields(f) for _, f in link.frames[i:] if f.startswith(b"SUM,"))
+    return dict(zip(["scn", "events", "tel_sent", "tel_dropped", "btn_dropped", "q_hw",
+                     "rec_overflow", "bounce_rej", "frame_err"], [f[1]] + [int(x) for x in f[2:]]))
+
+
+def tc_t07(link):
+    """T07: buton IDLE / RUNNING / STOPPED durumlarının hepsinde algılanır (TSK-05, TSK-05a)."""
+    ok = True
+    say("Karti RESETLE (siyah tus). VER cercevesi bekleniyor...")
+    link.wait_for("VER,", timeout=60)
+    link.drain(1.5)                                   # öz-testler (~1 s) bitsin
+    say("IDLE: butona 2 kez bas (aralarinda 1 sn birak).")
+    b = collect_btn(link, 2)
+    ok &= check("T07 IDLE", len(b) == 2 and all(x[1] == "0" for x in b),
+                f"{len(b)} BTN, olay no'lari {[x[1] for x in b]} (beklenen 2 adet, hepsi 0)")
+    link.send("CMD,SCN,0"); link.wait_for("ACK,SCN,S0")
+    link.send("CMD,START"); link.wait_for("ACK,START,S0")
+    say("RUNNING: butona 3 kez bas.")
+    b = collect_btn(link, 3)
+    ok &= check("T07 RUNNING", [x[1] for x in b] == ["1", "2", "3"],
+                f"olay no'lari {[x[1] for x in b]} (beklenen 1, 2, 3)")
+    link.send("CMD,STOP"); link.wait_for("ACK,STOP")
+    say("STOPPED: butona 2 kez bas.")
+    b = collect_btn(link, 2)
+    ok &= check("T07 STOPPED", len(b) == 2 and all(x[1] == "0" for x in b),
+                f"{len(b)} BTN, olay no'lari {[x[1] for x in b]} (beklenen 2 adet, hepsi 0)")
+    s = dump_sum(link)
+    ok &= check("T07 SUM", s["events"] == 3 and s["btn_dropped"] == 0,
+                f"events {s['events']} (beklenen 3), btn_dropped {s['btn_dropped']}")
+    return ok
+
+
+def tc_t08(link, presses=20):
+    """T08: debounce — operatörün saydığı basış sayısı = kabul edilen olay sayısı (ISR-03)."""
+    link.send("CMD,STOP"); link.drain(0.3)
+    link.send("CMD,SCN,0"); link.wait_for("ACK,SCN,S0")
+    link.send("CMD,START"); link.wait_for("ACK,START,S0")
+    say(f"Butona {presses} kez bas. Basislari KENDIN say; ekrana bakmadan saymaya calis.\n"
+        "    Hizli, yavas, kisa, uzun basislar karisik olsun. Bitince Enter'a bas.")
+    import threading
+    done = threading.Event()
+    threading.Thread(target=lambda: (input(), done.set()), daemon=True).start()
+    n_btn = 0
+    while not done.is_set():
+        for f in link.pump():
+            if f.startswith(b"BTN,"):
+                n_btn += 1
+    end = time.monotonic() + 0.5                  # son basıştan sonra gelen BTN'leri de say
+    while time.monotonic() < end:
+        n_btn += sum(1 for f in link.pump() if f.startswith(b"BTN,"))
+    counted = int(input("    Kac kez bastin? ").strip())
+    link.send("CMD,STOP"); link.wait_for("ACK,STOP")
+    s = dump_sum(link)
+    return check("T08 debounce", counted == s["events"] == n_btn,
+                 f"senin sayimin {counted}, kabul edilen olay {s['events']}, gelen BTN {n_btn}, "
+                 f"reddedilen sicrama (bounce_rej) {s['bounce_rej']}")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--port", help="ör. COM5; boşsa portlar listelenir")
-    ap.add_argument("--tc", default="adim4", choices=["adim4", "T02", "T03", "T11", "T14"])
+    ap.add_argument("--tc", default="adim4", choices=["adim4", "T02", "T03", "T11", "T14", "T07", "T08"])
     ap.add_argument("--secs", type=float, default=60.0, help="koşu süresi (test planı: 60 s)")
     a = ap.parse_args()
 
@@ -172,6 +260,10 @@ def main():
     scns = [1, 2, 3] if a.tc in ("adim4", "T03") else [3]
     print(f"== hil_check {a.tc} | port {a.port} | {a.secs:.0f} s/senaryo | {dt.datetime.now():%Y-%m-%d %H:%M} ==")
     try:
+        if a.tc == "T07":
+            results.append(tc_t07(link)); scns = []
+        elif a.tc == "T08":
+            results.append(tc_t08(link)); scns = []
         for scn in scns:
             print(f"-- S{scn} kosusu ({a.secs:.0f} s) --")
             r = run_once(link, scn, a.secs)
