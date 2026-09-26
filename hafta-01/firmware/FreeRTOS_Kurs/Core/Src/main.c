@@ -22,6 +22,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "app_ts.h"
 
 /* USER CODE END Includes */
 
@@ -143,6 +144,9 @@ int main(void)
   MX_ADC1_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
+  /* Zaman damgası sayacı (TIM2, 1 MHz) ve DWT çevrim sayacı: scheduler'dan önce başlar (tasarım §4). */
+  if (HAL_TIM_Base_Start(&htim2) != HAL_OK) { Error_Handler(); }
+  ts_dwt_init();
 
   /* USER CODE END 2 */
 

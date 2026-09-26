@@ -3,7 +3,7 @@
 | Alan | Değer |
 |---|---|
 | Doküman | `hafta-01/docs/specs/02-design.md` |
-| Sürüm | 1.4 (ONAYLANDI — 2026-09-26) |
+| Sürüm | 1.5 (ONAYLANDI — 2026-09-26) |
 | Tarih | 2026-09-25 |
 | Girdi | `01-requirements.md` v1.2 |
 | Sonraki doküman | `03-test-plan.md` |
@@ -424,6 +424,8 @@ bool frame_build(char out[64], const char *fmt, ...) {
 | MEM | `MEM,<min_free_heap>,<hw_tel>,<hw_btn>,<hw_tx>` (high-water word cinsinden) | ~30 |
 | RTS | `RTS,<task_name>,<run_us>,<pct_x10>` | ~40 |
 
+Tüm biçim dizgeleri tek yerde, `app_frame.h` içinde `FMT_*` makroları olarak tanımlıdır; `uint32_t` alanlar taşınabilirlik için `PRIu32` ile yazılır. REC'teki her fark en fazla `REC_DELTA_MAX = 9 999 999` µs (7 hane) olabilir; daha büyük bir değer ölçüm hatasıdır ve bu değere doyurulur. SUM'da `tel_sent`/`tel_dropped` 32-bit, diğer sayaçlar 16-bit'tir. Bu sınırlarla her biçimin 63 karaktere sığdığı TC-U06 ile doğrulanır.
+
 REC'te t₁…t₄ mutlak değil, **fark** olarak gönderilir: böylece 63 bayta sığar. PC mutlak değerleri t₀'a farkları ekleyerek geri kurar. `rw_task` tek harf: `T`/`B`/`U`/`O` (other).
 
 Karşıladığı: MSG-01…MSG-06, MSG-09, TIM-06, SYS-04.
@@ -545,3 +547,4 @@ Her adım ayrı bir commit ve kendi mini doğrulamasıyla tamamlanacak:
 | 1.2 | 2026-09-26 | Uygulamadan geri bildirim: görevler CubeMX'te *As external* olarak tanımlanır (CubeMX son görevi sildirmiyor, C-6); `USE_NEWLIB_REENTRANT` (C-8) |
 | 1.3 | 2026-09-26 | Görevler statik ayrılır (*Allocation = Static*); heap bütçesi güncellendi |
 | 1.4 | 2026-09-26 | UartTxTask *As weak* (CubeMX ilk görev için *As external* sunmuyor) |
+| 1.5 | 2026-09-26 | Uygulama adımı 3: biçimler `app_frame.h`'de, REC fark doyurma sınırı, SUM alan genişlikleri (§9) |
