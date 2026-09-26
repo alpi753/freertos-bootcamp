@@ -1,0 +1,21 @@
+============================= test session starts ==============================
+platform linux -- Python 3.10.12, pytest-9.1.1, pluggy-1.6.0 -- /usr/bin/python3
+cachedir: .pytest_cache
+rootdir: /sessions/rcw-01bh2s3stjfbmvx5r3nsnxfu/mnt/freertos-bootcamp
+collecting ... collected 13 items
+
+hafta-01/analysis/tests/test_analyze.py::test_valid_run_passes_all PASSED [  7%]
+hafta-01/analysis/tests/test_analyze.py::test_each_criterion_fails_alone[kw0-V1] PASSED [ 15%]
+hafta-01/analysis/tests/test_analyze.py::test_each_criterion_fails_alone[kw1-V2] PASSED [ 23%]
+hafta-01/analysis/tests/test_analyze.py::test_each_criterion_fails_alone[kw2-V2] PASSED [ 30%]
+hafta-01/analysis/tests/test_analyze.py::test_each_criterion_fails_alone[kw3-V3] PASSED [ 38%]
+hafta-01/analysis/tests/test_analyze.py::test_each_criterion_fails_alone[kw4-V3] PASSED [ 46%]
+hafta-01/analysis/tests/test_analyze.py::test_each_criterion_fails_alone[kw5-V6] PASSED [ 53%]
+hafta-01/analysis/tests/test_analyze.py::test_each_criterion_fails_alone[kw6-V6] PASSED [ 61%]
+hafta-01/analysis/tests/test_analyze.py::test_each_criterion_fails_alone[kw7-V6] PASSED [ 69%]
+hafta-01/analysis/tests/test_analyze.py::test_each_criterion_fails_alone[kw8-V6] PASSED [ 76%]
+hafta-01/analysis/tests/test_analyze.py::test_tel_dropped_is_not_a_criterion PASSED [ 84%]
+hafta-01/analysis/tests/test_analyze.py::test_v4_and_v5_violations PASSED [ 92%]
+hafta-01/analysis/tests/test_analyze.py::test_summary_plots_report PASSED [100%]
+
+============================== 13 passed in 2.94s ==============================
