@@ -37,6 +37,7 @@ Test tanımları: [`specs/03-test-plan.md`](specs/03-test-plan.md). Her satır b
 | TC-T23 | 2026-09-26 | adım 7 commit'i | Release | GEÇTİ | [Live Expressions](test-results/ui/T23-release-2026-09-26.png): `t23_hook_ns = 1513` (ölçüt 0 < … < 2000), `t23_pass = 1` | En pahalı yol (BTN_EXEC penceresi açık) ölçüldü; pencere kapalıyken kancalar erken döner. Aynı açılışta Release'te T19 = 1 000 000 µs, T20 = 11 çevrim ≈ 137 ns. |
 | TC-T22 | 2026-09-26 | adım 7 commit'i | Release | GEÇTİ | [log](test-results/raw/T22-2026-09-26_161248.log): S0, 10 olay; hepsinde `bt_n_pre = 0`, `tx_n_pre = 0`; `d_ButtonExec = exec + pre` her olayda tam | S0: EventToRun 16–17 µs, ready_wait 11–12 µs ('O' = idle), ButtonExec 44–48 µs, QueueWait 32–33 µs. |
 | TC-T21 (S3) | 2026-09-26 | adım 7 commit'i | Release | GEÇTİ | [log](test-results/raw/T21-2026-09-26_161323.log): 10/10 olayda PRE; `|d_ButtonExec − (exec+pre)|` en büyük 0 µs; pre>0 ⇒ n>0; ready_wait ≤ EventToRun; tx_pre ≤ QueueWait | Test planı 1.4: S5 (CPU yükü) adım 8'den sonra tekrarlanacak. Olay 1: ready_wait 292 µs ('T') — basış anında TelemetryTask koşuyordu. |
+| TC-T22 (Debug, bilgi) | 2026-09-26 | d6c9e15 | Debug | GEÇTİ | [log](test-results/raw/T22-2026-09-26_161130.log): 10 olayda `bt_n_pre = tx_n_pre = 0` | Release koşusundan önce yanlışlıkla Debug ile yapıldı; resmi sonuç Release satırı. Debug'da ready_wait 16–17 µs, bt_exec 50–57 µs. |
 
 ## Sapmalar (karşılanmayan gereksinimler)
 
