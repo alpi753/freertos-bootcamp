@@ -13,6 +13,8 @@ Kullanım (Windows örneği):
     py interface/tools/hil_check.py --port COM5 --tc T13               # TEST_FORCE_QFULL=1 derlemesi
     py interface/tools/hil_check.py --port COM5 --tc T15               # TEST_MEAS_CAP=1 derlemesi
     py interface/tools/hil_check.py --port COM5 --tc T16               # TEST_LONG_FRAME=1 derlemesi (Release)
+    py interface/tools/hil_check.py --port COM5 --tc T21 --scn 3       # etkileşimli: 10 basış
+    py interface/tools/hil_check.py --port COM5 --tc T22               # etkileşimli: 10 basış (S0)
 
 Her koşu ham UART kaydını docs/test-results/raw/<TC>-<tarih>.log dosyasına yazar.
 Satır biçimi:  <PC ms>\t<çerçeve>   (PC zamanı yalnızca hata ayıklama içindir;
@@ -258,17 +260,22 @@ def full_dump(link):
     link.send("CMD,DUMP")
     link.wait_for("END,DUMP", timeout=10)
     frames = [f for _, f in link.frames[i:] if not f.startswith(b">>")]
-    recs, s, ver = [], None, None
+    recs, pres, s, ver = [], {}, None, None
     for f in frames:
         x = fields(f)
         if x[0] == "REC":
             recs.append(dict(zip(["id", "scn", "t0", "d1", "d2", "d3", "d4", "lost"],
                                  [int(x[1]), x[2]] + [int(v) for v in x[3:]])))
+        elif x[0] == "PRE":
+            pres[int(x[1])] = dict(zip(["rw_us", "rw_task", "bt_exec", "bt_n", "bt_pre", "tx_n", "tx_pre"],
+                                       [int(x[2]), x[3], int(x[4]), int(x[5]), int(x[6]), int(x[7]), int(x[8])]))
         elif x[0] == "SUM":
             s = dict(zip(["scn", "events", "tel_sent", "tel_dropped", "btn_dropped", "q_hw",
                           "rec_overflow", "bounce_rej", "frame_err"], [x[1]] + [int(v) for v in x[2:]]))
         elif x[0] == "VER":
             ver = x
+    for r in recs:
+        r["pre"] = pres.get(r["id"])
     return {"ver": ver, "recs": recs, "sum": s, "frames": frames}
 
 
@@ -390,11 +397,68 @@ def tc_t16(link):
                  f"64 bayt olmayan cerceve {bad}")
 
 
+# ---- Adım 7: görev değişimi muhasebesi --------------------------------------
+
+def run_presses(link, scn, presses):
+    if not require_flags(link, 0):
+        return None
+    start(link, scn)
+    say(f"S{scn} kosusu basladi. Butona {presses} kez bas (aralarinda 1-3 sn, duzensiz).")
+    collect_btn(link, presses)
+    stop(link)
+    return full_dump(link)
+
+
+def print_pre(recs):
+    print("    olay | EventToRun ready_wait(gorev) | ButtonExec = exec + pre (n) | QueueWait  tx_pre (n)")
+    for r in recs:
+        p = r["pre"] or {}
+        print(f"    {r['id']:>4} | {r['d1']:>9} {p.get('rw_us','-'):>9} ({p.get('rw_task','-')})"
+              f" | {r['d2']:>9} = {p.get('bt_exec','-')} + {p.get('bt_pre','-')} ({p.get('bt_n','-')})"
+              f" | {r['d3']:>8} {p.get('tx_pre','-'):>8} ({p.get('tx_n','-')})")
+
+
+def tc_t21(link, scn=3, presses=10):
+    """T21: muhasebe denklemleri (TIM-07/08/09). Test planı S5 der; CPU yükü adım 8'de gelince S5'te tekrarlanır."""
+    d = run_presses(link, scn, presses)
+    if d is None:
+        return False
+    recs = [r for r in d["recs"] if r["lost"] == 0]
+    print_pre(recs)
+    ok = True
+    ok &= check("T21 PRE her olayda", len(recs) == presses and all(r["pre"] for r in recs),
+                f"{sum(1 for r in recs if r['pre'])}/{presses} olayda PRE var")
+    if not ok:
+        return False
+    eq = [abs(r["d2"] - (r["pre"]["bt_exec"] + r["pre"]["bt_pre"])) for r in recs]
+    ok &= check("T21 d_ButtonExec = exec + pre", max(eq) <= 2, f"en buyuk fark {max(eq)} us (<= 2)")
+    ok &= check("T21 pre>0 => n>0", all(r["pre"]["bt_n"] > 0 for r in recs if r["pre"]["bt_pre"] > 0)
+                and all(r["pre"]["tx_n"] > 0 for r in recs if r["pre"]["tx_pre"] > 0), "tutarli")
+    ok &= check("T21 ready_wait <= d_EventToRun", all(r["pre"]["rw_us"] <= r["d1"] for r in recs), "tutarli")
+    ok &= check("T21 tx_pre <= d_QueueWait", all(r["pre"]["tx_pre"] <= r["d3"] for r in recs), "tutarli")
+    return ok
+
+
+def tc_t22(link, presses=10):
+    """T22: S0'da kesilme sebebi yok → hiçbir kesilme sayılmamalı (TIM-10; ölçüm aracının doğrulaması)."""
+    d = run_presses(link, 0, presses)
+    if d is None:
+        return False
+    recs = d["recs"]
+    print_pre(recs)
+    return check("T22 S0'da kesilme yok",
+                 len(recs) == presses and all(r["pre"] and r["pre"]["bt_n"] == 0 and r["pre"]["tx_n"] == 0
+                                              for r in recs),
+                 f"bt_n_pre {[r['pre']['bt_n'] for r in recs if r['pre']]}, "
+                 f"tx_n_pre {[r['pre']['tx_n'] for r in recs if r['pre']]}")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--port", help="ör. COM5; boşsa portlar listelenir")
-    ap.add_argument("--tc", default="adim4", choices=["adim4", "T02", "T03", "T11", "T14", "T07", "T08", "T12", "T13", "T15", "T16"])
+    ap.add_argument("--tc", default="adim4", choices=["adim4", "T02", "T03", "T11", "T14", "T07", "T08", "T12", "T13", "T15", "T16", "T21", "T22"])
     ap.add_argument("--secs", type=float, default=60.0, help="koşu süresi (test planı: 60 s)")
+    ap.add_argument("--scn", type=int, default=3, help="T21 için senaryo (varsayılan S3)")
     a = ap.parse_args()
 
     if not a.port:
@@ -414,6 +478,10 @@ def main():
         elif a.tc in ("T12", "T13", "T15", "T16"):
             fn = {"T12": tc_t12, "T13": tc_t13, "T15": tc_t15, "T16": tc_t16}[a.tc]
             results.append(fn(link)); scns = []
+        elif a.tc == "T21":
+            results.append(tc_t21(link, a.scn)); scns = []
+        elif a.tc == "T22":
+            results.append(tc_t22(link)); scns = []
         for scn in scns:
             print(f"-- S{scn} kosusu ({a.secs:.0f} s) --")
             r = run_once(link, scn, a.secs)

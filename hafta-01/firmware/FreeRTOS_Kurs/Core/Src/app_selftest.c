@@ -4,6 +4,7 @@
  */
 #include "app_selftest.h"
 #include "app_ts.h"
+#include "app_meas.h"
 #include "FreeRTOS.h"
 #include "task.h"
 
@@ -35,6 +36,10 @@ void app_selftest_run(void)
     /* ns = çevrim × (1e9 / SystemCoreClock); 80 MHz'de 12,5 ns/çevrim */
     g_selftest.t20_ns = (uint32_t)(((uint64_t)cycles * 1000000000ull) / ((uint64_t)SystemCoreClock * T20_N));
     g_selftest.t20_pass = (g_selftest.t20_ns <= 1000u);
+
+    /* --- T23: görev değiştirme kancalarının ek yükü */
+    g_selftest.t23_hook_ns = meas_hook_cost_ns();
+    g_selftest.t23_pass = (g_selftest.t23_hook_ns > 0u && g_selftest.t23_hook_ns < 2000u);
 
     g_selftest.done = 1;
 }

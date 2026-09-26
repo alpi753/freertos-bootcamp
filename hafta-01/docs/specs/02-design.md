@@ -3,7 +3,7 @@
 | Alan | Değer |
 |---|---|
 | Doküman | `hafta-01/docs/specs/02-design.md` |
-| Sürüm | 1.7 (ONAYLANDI — 2026-09-26) |
+| Sürüm | 1.8 (ONAYLANDI — 2026-09-26) |
 | Tarih | 2026-09-25 |
 | Girdi | `01-requirements.md` v1.2 |
 | Sonraki doküman | `03-test-plan.md` |
@@ -382,6 +382,12 @@ Pencereler aynı anda en fazla birer olay için açıktır (debounce bunu garant
 
 > 💡 **Bu kancalar nerede çalışıyor?** Görev değişimi Cortex-M'de **PendSV** kesmesinde yapılır ve kancalar da orada çağrılır. Bu yüzden kısa olmaları çok önemli: burada geçen her µs, bütün sistemdeki her görev değişimine eklenir. Kanca işi bir `TIM2->CNT` okuması + birkaç RAM yazmasıyla sınırlı tutuluyor.
 
+**Uygulama notları (adım 7):**
+- Kanca makroları `FreeRTOSConfig.h`'te (`USER CODE BEGIN Defines`) tanımlıdır; tag'i ve "Ready listesinde mi?" bilgisini `tasks.c` içinde hesaplayıp `meas_hook_out_now(tag, preempted)` / `meas_hook_in_now(tag)` çağırırlar. Muhasebe çekirdeği (`meas_hook_out/in`) saf C'dir ve PC'de test edilir (TC-U10).
+- `bt_exec_us`, `(t₂−t₁) − bt_preempt_us` diye **hesaplanmaz**; ButtonTask'ın CPU'da kaldığı parçalar kancalarda ayrı ayrı toplanır. Böylece T21'deki `d_ButtonExec = exec + preempt` denklemi gerçek bir tutarlılık kontrolü olur (kaçırılan bir görev değişimi denklemi bozar).
+- Pencere geçişleri (t₀…t₃ damgaları) kısa bir kritik bölgede yapılır (`portSET_INTERRUPT_MASK_FROM_ISR`): kancalar (PendSV) yarım güncellenmiş pencere görmez.
+- READY penceresinde t₀ anında koşan görevin süresi t₀'dan itibaren sayılır; kesmelerin süresi o an koşan göreve yazılır (TIM-11). S0'da `ready_wait_us` bu yüzden kabaca buton ISR'ının süresidir.
+
 ### 8.3 Kanca ek yükü (TIM-12)
 
 Açılışta, kesmeler kapalıyken, kanca gövdeleri sahte bir TCB ile 1000 kez çağrılır ve süre **DWT CYCCNT** (12,5 ns çözünürlük) ile ölçülür. Ortalama giriş+çıkış maliyeti ns cinsinden `CAL` çerçevesinde raporlanır.
@@ -556,3 +562,4 @@ Her adım ayrı bir commit ve kendi mini doğrulamasıyla tamamlanacak:
 | 1.5 | 2026-09-26 | Uygulama adımı 3: biçimler `app_frame.h`'de, REC fark doyurma sınırı, SUM alan genişlikleri (§9) |
 | 1.6 | 2026-09-26 | §12: komut kanalı ve ADC okuma adım 4'e alındı |
 | 1.7 | 2026-09-26 | Uygulama adımı 6: §8.1 kayıt uygulama notları (lost kodları 0/1/2, have maskesi, t₃/t₄ yerleri) |
+| 1.8 | 2026-09-26 | Uygulama adımı 7: §8.2 kanca uygulama notları; SUM'daki `frame_err` de START'ta sıfırlanır |

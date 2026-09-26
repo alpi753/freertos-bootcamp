@@ -3,7 +3,7 @@
 | Alan | Değer |
 |---|---|
 | Doküman | `hafta-01/docs/specs/03-test-plan.md` |
-| Sürüm | 1.3 (ONAYLANDI — 2026-09-26) |
+| Sürüm | 1.4 (ONAYLANDI — 2026-09-26) |
 | Tarih | 2026-09-25 |
 | Girdi | `01-requirements.md` v1.2, `02-design.md` v1.1 |
 | Çıktı | `docs/test-results.md` (test sonuçları), `measurements/`, `analysis/` (kanıtlar) |
@@ -115,6 +115,7 @@ Kontrol listesi (her madde için `docs/test-results.md`'ye ✓/✗ + dosya:satı
 | **U07** | PC çerçeve ayrıştırıcı | Her tip; 63/65 baytlık bozuk çerçeve; ortada kesilmiş akış; TEL sırasında boşluk | Doğru tip ve alanlar; bozuklar sayılır; akış bir sonraki LF'de hizalanır; boşluk `pc_lost`'a eklenir | UI-02, UI-05 |
 | **U08** | REC/PRE → CSV | Örnek döküm | Sütunlar §8 şemasında; t₁…t₄ geri kurulumu doğru; `lost=1` satırında t₃/t₄ boş | UI-07, TIM-02a |
 | **U09** | `analyze.py` | Sentetik S0…S5 CSV'leri | `summary.csv` ve tüm PNG'ler üretilir; istatistikler elle hesapla aynı | UI-10 |
+| **U10** | Görev değiştirme kancaları (`meas_hook_out/in`) | Elle oynatılan görev değişimi dizileri: S0 (kesilme yok), ButtonTask kesildi, UartTx kesildi / bloklandı, kayıp olay | PRE değerleri elle hesaplananla aynı; `d_ButtonExec = exec + pre`; bloklanma kesilme sayılmaz | TIM-07…TIM-10 |
 
 **Kanıt:** `make test` ve `pytest` çıktısı `docs/test-results/unit-<tarih>.txt` dosyasına kaydedilir.
 
@@ -148,9 +149,9 @@ Otomatik olanlar `hil_check.py --tc <ID>` ile çalışır. Betik komutları gön
 |---|---|---|---|
 | **T19** Sayaç frekansı | Açılış öz-testi: `vTaskDelay(1000)` öncesi/sonrası `ts_now()` farkı | 1 000 000 µs ± 1 000 (tick çözünürlüğü) → TIM2 gerçekten 1 MHz | TIM-01 |
 | **T20** Damga ek yükü | Açılış öz-testi: `ts_now()` + RAM yazması 1000 kez, DWT ile | Ortalama ≤ 1 µs (80 cycle) | TIM-04 |
-| **T21** Görev değişimi muhasebesi | S5 koşusu, (Op) 10 basış, DUMP | Her olay için: \|`d_ButtonExec` − (`bt_exec_us` + `bt_preempt_us`)\| ≤ 2 µs. `bt_preempt_us > 0` ⇒ `bt_n_preempt > 0`. `ready_wait_us` ≤ `d_EventToRun`. `tx_preempt_us` ≤ `d_QueueWait` | TIM-07, TIM-08, TIM-09 |
+| **T21** Görev değişimi muhasebesi | S5 koşusu, (Op) 10 basış, DUMP. (Adım 7'de CPU yükü henüz yokken S3'te koşulur; adım 8'den sonra S5'te tekrarlanır.) | Her olay için: \|`d_ButtonExec` − (`bt_exec_us` + `bt_preempt_us`)\| ≤ 2 µs. `bt_preempt_us > 0` ⇒ `bt_n_preempt > 0`. `ready_wait_us` ≤ `d_EventToRun`. `tx_preempt_us` ≤ `d_QueueWait` | TIM-07, TIM-08, TIM-09 |
 | **T22** Kesilme ≠ bloklanma | S0 koşusu, (Op) 10 basış, DUMP | Her olayda `tx_n_preempt = 0` ve `bt_n_preempt = 0` | TIM-10 |
-| **T23** Kanca ek yükü | Herhangi bir DUMP | CAL'da `hook_ns` > 0 ve < 2000 | TIM-12 |
+| **T23** Kanca ek yükü | Açılış öz-testi: bir çıkış+giriş kanca çifti 1000 kez, kesmeler kapalı, DWT ile (en pahalı yol: BTN_EXEC penceresi açık). Adım 8'e kadar Live Expressions'da `g_selftest.t23_hook_ns`, sonra CAL'da `hook_ns` | 0 < `hook_ns` < 2000 | TIM-12 |
 | **T24** Run-time stats | S3 koşusu, DUMP | Tüm görevler + IDLE için RTS var; yüzdelerin toplamı %100 ± 1 | TIM-06 |
 | **T25** Öncelikler | Debug; CubeIDE *FreeRTOS Task List* görünümü | Öncelikler 40/32/24 ve görev adları doğru | SYS-02 |
 
@@ -290,8 +291,8 @@ hafta-01/
 | TIM-04 | T20 | raw/T20 |
 | TIM-05 | T11 | raw/T02 |
 | TIM-06 | T24 | raw/T24 |
-| TIM-07, TIM-08, TIM-09 | T21, V5 | raw/T21, E00…E05 |
-| TIM-10 | R01, T22 | raw/T22 |
+| TIM-07, TIM-08, TIM-09 | U10, T21, V5 | unit, raw/T21, E00…E05 |
+| TIM-10 | R01, U10, T22 | unit, raw/T22 |
 | TIM-11 | R03 | code-notes.md |
 | TIM-12 | T23 | raw (CAL) |
 | SCN-01 | T03, T05 | raw/T03, raw/T05 |
@@ -320,7 +321,7 @@ Tasarım §12'deki her adım, aşağıdaki testler geçmeden tamamlanmış sayı
 | 4 Kuyruk + UartTxTask + komutlar + TelemetryTask | U02, U05, T02, T03, T11, T14 |
 | 5 ButtonTask + ISR | T07, T08, T09 |
 | 6 `app_meas` t₀…t₄ | U08, T12, T13, T15, T16 |
-| 7 Trace kancaları | T21, T22, T23 |
+| 7 Trace kancaları | U10, T21, T22, T23 |
 | 8 CPU yükü, stats, MEM | T04, T05, T06, T17, T18, T24, T25 |
 | 9 PC arayüzü | U07, D01…D06, T10 |
 | 10 Analiz + dokümanlar | U09, R01, R03, E00…E06 |
@@ -343,3 +344,4 @@ Tasarım §12'deki her adım, aşağıdaki testler geçmeden tamamlanmış sayı
 | 1.1 | 2026-09-26 | §10: U02 ve U05 adım 4'e alındı (komut kanalı ve ADC okuma öne çekildi) |
 | 1.2 | 2026-09-26 | T09 Release derlemede değerlendirilir; TQ-2 düzeltildi |
 | 1.3 | 2026-09-26 | T12'ye t₄−t₃ fiziksel alt sınır kontrolü eklendi |
+| 1.4 | 2026-09-26 | U10 (kanca muhasebesi, kartsız) eklendi; T21 adım 7'de S3'te, adım 8'den sonra S5'te; T23 ölçüm yöntemi |

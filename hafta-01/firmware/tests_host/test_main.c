@@ -14,6 +14,7 @@ void test_frame_all(void);
 void test_cmd_all(void);
 void test_temp_all(void);
 void test_meas_all(void);
+void test_hooks_all(void);
 
 int main(void)
 {
@@ -23,6 +24,7 @@ int main(void)
     test_temp_all();
     test_cmd_all();
     test_meas_all();
+    test_hooks_all();
     printf("== %d kontrol, %d hata ==\n", g_checks, g_fails);
     return g_fails ? 1 : 0;
 }

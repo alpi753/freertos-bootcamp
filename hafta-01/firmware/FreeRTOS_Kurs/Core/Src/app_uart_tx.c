@@ -121,13 +121,15 @@ static void send_sum(void)
               (unsigned)c.bounce_rej, (unsigned)(g_frame_err & 0xFFFFu));
 }
 
-/** Her kayıt için bir REC çerçevesi (MSG-05; tasarım §9). */
+/** Her kayıt için bir REC + bir PRE çerçevesi (MSG-05; tasarım §9). */
 static void send_recs(void)
 {
     meas_rec_view_t v;
     for (uint16_t i = 0; meas_view(i, &v); i++) {
         send_ctrl(FMT_REC, (unsigned)v.event_id, (unsigned)v.scn, v.t0,
                   v.d[0], v.d[1], v.d[2], v.d[3], (unsigned)v.lost);
+        send_ctrl(FMT_PRE, (unsigned)v.event_id, v.ready_wait_us, v.ready_wait_task,
+                  v.bt_exec_us, (unsigned)v.bt_n_pre, v.bt_pre_us, (unsigned)v.tx_n_pre, v.tx_pre_us);
     }
 }
 
@@ -171,7 +173,7 @@ static void cmd_execute(const char *line)
     case CMD_DUMP:
         send_ctrl("ACK,DUMP,%u", (unsigned)meas_count());
         send_ver();
-        send_recs();                           /* PRE (adım 7), CAL/MEM/RTS (adım 8) sonra */
+        send_recs();                           /* CAL/MEM/RTS adım 8'de */
         send_sum();
         send_ctrl("END,DUMP");
         break;

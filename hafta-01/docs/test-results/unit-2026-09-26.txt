@@ -1,4 +1,4 @@
-# Kartsız birim testleri — 2026-09-26 12:18 UTC
+# Kartsız birim testleri — 2026-09-26 13:01 UTC
 # gcc: gcc (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0
 # komut: make -C firmware/tests_host test
 
@@ -13,12 +13,15 @@
 [GECTI] U08    fw: t0..t4 zinciri, kayip, eksik
 [GECTI] U08    fw: kosu disi, tasma, doyurma
 [GECTI] U08    fw: kayit kapasitesi (64)
-== 99 kontrol, 0 hata ==
+[GECTI] U10    S0: kesilme yok, bloklanma sayilmaz
+[GECTI] U10    ButtonTask kesildi: exec+pre = t2-t1
+[GECTI] U10    UartTx: kesilme sayilir, bloklanma sayilmaz
+[GECTI] U10    kayip olayda TX penceresi kapanir
+== 122 kontrol, 0 hata ==
 
 # PC tarafı (pytest) — python 3.10.12
-# komut: python -m pytest -v interface/tests
 interface/tests/test_csv.py::test_parse_types PASSED                     [ 25%]
 interface/tests/test_csv.py::test_parse_bad PASSED                       [ 50%]
 interface/tests/test_csv.py::test_rec_absolute_wraps PASSED              [ 75%]
 interface/tests/test_csv.py::test_csv_columns_and_lost PASSED            [100%]
-============================== 4 passed in 0.15s ===============================
+============================== 4 passed in 0.14s ===============================

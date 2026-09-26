@@ -45,6 +45,7 @@ void run_start(void)
     taskENTER_CRITICAL();
     memset((void *)&g_cnt, 0, sizeof g_cnt);
     meas_reset();                                  /* kayıtlar ve olay sayacı */
+    g_frame_err = 0;                               /* SUM'daki diğer sayaçlar gibi koşu başına */
     g_run_id++;
     g_run_state = RUN_RUNNING;
     taskEXIT_CRITICAL();

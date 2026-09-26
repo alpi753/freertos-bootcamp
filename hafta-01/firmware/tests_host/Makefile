@@ -7,7 +7,7 @@ CFLAGS  := -std=c11 -Wall -Wextra -Werror -Wformat=2 -g -DUNIT_TEST -I$(INC_DIR)
 BUILD   := build
 
 UUT     := $(SRC_DIR)/app_ts.c $(SRC_DIR)/app_frame.c $(SRC_DIR)/app_cmd.c $(SRC_DIR)/app_temp.c $(SRC_DIR)/app_meas.c
-TESTS   := test_main.c test_ts.c test_frame.c test_cmd.c test_temp.c test_meas.c
+TESTS   := test_main.c test_ts.c test_frame.c test_cmd.c test_temp.c test_meas.c test_hooks.c
 
 $(BUILD)/run_tests: $(UUT) $(TESTS) unit.h $(wildcard $(INC_DIR)/app_*.h)
 	@mkdir -p $(BUILD)

@@ -52,6 +52,9 @@
   #include <stdint.h>
   extern uint32_t SystemCoreClock;
 /* USER CODE BEGIN 0 */
+  /* Görev değiştirme kancaları (tasarım §8.2; app_meas.c) */
+  void meas_hook_out_now(uint32_t tag, uint32_t preempted);
+  void meas_hook_in_now(uint32_t tag);
   extern void configureTimerForRunTimeStats(void);
   extern unsigned long getRunTimeCounterValue(void);
 /* USER CODE END 0 */
@@ -181,6 +184,21 @@ standard names. */
 /* USER CODE END 2 */
 
 /* USER CODE BEGIN Defines */
+/* Görev değiştirme kancaları (TIM-07…TIM-10; tasarım §8.2).
+ * Bu makrolar tasks.c İÇİNDE açılır; bu yüzden pxCurrentTCB ve pxReadyTasksLists
+ * gibi tasks.c'ye özel değişkenlere erişebilirler. PendSV (görev değişimi) içinde
+ * çalışırlar: kısa olmaları şart (ek yükü TC-T23 ölçer).
+ *   tag       : görevin application task tag'i (app_tasks.h)
+ *   preempted : görev hâlâ kendi önceliğinin Ready listesinde mi? (TIM-10)
+ *               evet → daha yüksek öncelikli biri CPU'yu aldı (KESİLME)
+ *               hayır → görev kendisi bir şey bekliyor (BLOKLANMA)
+ * UYARI: FreeRTOS 10.3.1 iç yapılarına dayanır; kernel güncellenirse kontrol edilmeli. */
+#define traceTASK_SWITCHED_OUT()                                                         \
+    meas_hook_out_now((uint32_t)(uintptr_t)pxCurrentTCB->pxTaskTag,                     \
+                      (uint32_t)listIS_CONTAINED_WITHIN(&pxReadyTasksLists[pxCurrentTCB->uxPriority], \
+                                                        &pxCurrentTCB->xStateListItem))
+#define traceTASK_SWITCHED_IN()                                                          \
+    meas_hook_in_now((uint32_t)(uintptr_t)pxCurrentTCB->pxTaskTag)
 /* Section where parameter definitions can be added (for instance, to override default ones in FreeRTOS.h) */
 /* USER CODE END Defines */
 

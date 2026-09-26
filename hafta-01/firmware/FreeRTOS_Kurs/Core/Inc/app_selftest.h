@@ -21,6 +21,9 @@ typedef struct {
     uint32_t t20_cycles_x100;   /* ortalama çevrim × 100 */
     uint32_t t20_ns;            /* ortalama süre [ns] */
     uint32_t t20_pass;
+    /* T23: bir çıkış+giriş kanca çiftinin ortalama maliyeti [ns]. Geçme: 0 < … < 2000. */
+    uint32_t t23_hook_ns;
+    uint32_t t23_pass;
 } app_selftest_t;
 
 extern volatile app_selftest_t g_selftest;
