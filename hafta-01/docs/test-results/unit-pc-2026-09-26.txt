@@ -2,23 +2,24 @@
 platform linux -- Python 3.10.12, pytest-9.1.1, pluggy-1.6.0 -- /usr/bin/python3
 cachedir: .pytest_cache
 rootdir: /sessions/rcw-01bh2s3stjfbmvx5r3nsnxfu/mnt/freertos-bootcamp/hafta-01/interface
-collecting ... collected 16 items
+collecting ... collected 17 items
 
-tests/test_csv.py::test_parse_types PASSED                               [  6%]
-tests/test_csv.py::test_parse_bad PASSED                                 [ 12%]
-tests/test_csv.py::test_rec_absolute_wraps PASSED                        [ 18%]
-tests/test_csv.py::test_csv_columns_and_lost PASSED                      [ 25%]
-tests/test_session.py::test_split_normal_and_chunked PASSED              [ 31%]
-tests/test_session.py::test_split_first_partial_frame_is_sync_not_bad PASSED [ 37%]
-tests/test_session.py::test_split_63_and_65_byte_frames_counted_and_realigned PASSED [ 43%]
-tests/test_session.py::test_split_cut_in_the_middle PASSED               [ 50%]
-tests/test_session.py::test_split_garbage_without_lf PASSED              [ 56%]
-tests/test_session.py::test_parse_all_types PASSED                       [ 62%]
-tests/test_session.py::test_seq_gap_counts_pc_lost_and_resets_on_start PASSED [ 68%]
-tests/test_session.py::test_bad_frame_counted PASSED                     [ 75%]
-tests/test_session.py::test_button_states_and_locks PASSED               [ 81%]
-tests/test_session.py::test_nak_infers_state_after_connect PASSED        [ 87%]
-tests/test_session.py::test_tel_while_unknown_means_running PASSED       [ 93%]
+tests/test_csv.py::test_parse_types PASSED                               [  5%]
+tests/test_csv.py::test_parse_bad PASSED                                 [ 11%]
+tests/test_csv.py::test_rec_absolute_wraps PASSED                        [ 17%]
+tests/test_csv.py::test_csv_columns_and_lost PASSED                      [ 23%]
+tests/test_session.py::test_split_normal_and_chunked PASSED              [ 29%]
+tests/test_session.py::test_split_first_partial_frame_is_sync_not_bad PASSED [ 35%]
+tests/test_session.py::test_split_63_and_65_byte_frames_counted_and_realigned PASSED [ 41%]
+tests/test_session.py::test_split_cut_in_the_middle PASSED               [ 47%]
+tests/test_session.py::test_split_garbage_without_lf PASSED              [ 52%]
+tests/test_session.py::test_parse_all_types PASSED                       [ 58%]
+tests/test_session.py::test_seq_gap_counts_pc_lost_and_resets_on_start PASSED [ 64%]
+tests/test_session.py::test_trailing_drops_do_not_make_negative_loss PASSED [ 70%]
+tests/test_session.py::test_bad_frame_counted PASSED                     [ 76%]
+tests/test_session.py::test_button_states_and_locks PASSED               [ 82%]
+tests/test_session.py::test_nak_infers_state_after_connect PASSED        [ 88%]
+tests/test_session.py::test_tel_while_unknown_means_running PASSED       [ 94%]
 tests/test_session.py::test_dump_assembly PASSED                         [100%]
 
-============================== 16 passed in 0.15s ==============================
+============================== 17 passed in 0.11s ==============================

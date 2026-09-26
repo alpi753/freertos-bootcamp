@@ -138,7 +138,12 @@ class Session:
         return True
 
     def uart_lost_estimate(self):
-        """SUM geldiyse: PC boşluğu − MCU'nun kasıtlı düşürdüğü TEL (kalan: hat kaybı)."""
+        """SUM geldiyse: kartın UART'a verdiği TEL (tel_sent) − PC'nin aldığı TEL.
+
+        Not: "sıra boşluğu − tel_dropped" KULLANILMAZ. Koşunun sonunda düşürülen
+        TEL'lerden sonra hiç TEL gelmediği için onlar boşluk olarak görünmez
+        (D03'te −2 çıkmıştı). Arayüz koşu ortasında bağlandıysa sonuç anlamsızdır.
+        """
         if self.last_sum is None:
             return None
-        return self.pc_lost - self.last_sum["tel_dropped"]
+        return self.last_sum["tel_sent"] - self.tel_n

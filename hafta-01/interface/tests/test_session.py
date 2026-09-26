@@ -79,11 +79,22 @@ def test_seq_gap_counts_pc_lost_and_resets_on_start():
         s.handle(fr(f"TEL,{seq},S3,250"))
     assert s.pc_lost == 5 and s.state == RUNNING
     s.handle(fr("ACK,STOP"))
-    s.handle(fr("SUM,S3,0,11,5,0,16,0,0,0"))
-    assert s.uart_lost_estimate() == 0               # boşlukların hepsi kartta düşürülmüş
+    s.handle(fr("SUM,S3,0,6,5,0,16,0,0,0"))          # 6 gönderildi, 5 düşürüldü
+    assert s.uart_lost_estimate() == 0               # hatta kayıp yok
     s.handle(fr("ACK,START,S3"))
     s.handle(fr("TEL,0,S3,250"))
     assert s.pc_lost == 0
+
+
+def test_trailing_drops_do_not_make_negative_loss():
+    """D03 bulgusu: son TEL'den sonra düşürülenler boşluk olarak görünmez."""
+    s = Session()
+    s.handle(fr("ACK,START,S2"))
+    for seq in (0, 1, 3):                            # 2 boşluk; 4 ve 5 sonda düşürüldü
+        s.handle(fr(f"TEL,{seq},S2,250"))
+    s.handle(fr("ACK,STOP"))
+    s.handle(fr("SUM,S2,0,3,3,0,2,0,0,0"))
+    assert s.pc_lost == 1 and s.uart_lost_estimate() == 0
 
 
 def test_bad_frame_counted():

@@ -56,6 +56,8 @@ Test tanımları: [`specs/03-test-plan.md`](specs/03-test-plan.md). Her satır b
 | TC-D02 | 2026-09-26 | f507a96 | Release | GEÇTİ | Operatör gözlemi: S3 koşusunda basışlar "Olay N" olarak sayıldı; durdurduktan sonraki basış "ölçüm dışı" | Ekran görüntüsü alınmadı. |
 | TC-D04 | 2026-09-26 | f507a96 | Release | GEÇTİ | Operatör gözlemi: koşu sırasında yalnızca "Durdur" etkin | Ekran görüntüsü alınmadı. |
 | TC-D05 | 2026-09-26 | 44a9daa | Release | GEÇTİ | `compare_dump.py`: [S2.csv](../measurements/S2.csv) ↔ [ham döküm](test-results/raw/UI-DUMP-S2-2026-09-26_183931.log) 5/5 satır aynı; önceki koşu [S2_20260926_183315.csv](../measurements/S2_20260926_183315.csv) ↔ [ham döküm](test-results/raw/UI-DUMP-S2-2026-09-26_183315.log) 23/23 aynı | Operatörün ilk denemesi yanlış dosya adıyla (saat eki eksik) FileNotFoundError verdi; araç hatası değil. Eski CSV'nin tarihli ada taşınması da doğrulandı. |
+| TC-D06 | 2026-09-26 | 44a9daa | Release | GEÇTİ | [D06-2026-09-26.png](test-results/ui/D06-2026-09-26.png): S2, 5 olay; yığılmış çubuk (4 aralık) ve exec/preempt grafiği çizildi. Kayıp işareti D03 görüntüsünde (olay 2–4, kırmızı ×) | Lejant çubukların üstüne biniyordu; sağ üste taşındı. |
+| TC-D03 | 2026-09-26 | 44a9daa | Release + `TEST_FORCE_QFULL=1` (bayrak 0x01) | GEÇTİ | [D03-2026-09-26.png](test-results/ui/D03-2026-09-26.png), [ham döküm](test-results/raw/UI-DUMP-S2-2026-09-26_184743.log): `tel_dropped` 292, `btn_dropped` 3, PC sıra boşluğu 290, bozuk çerçeve 0 göründü | "Hat kaybı" satırı −2 gösterdi → B-03, arayüz düzeltildi (yeni formülle: 165 − 165 = 0). Bu derlemenin CSV'leri `*_qfull.csv` adıyla ayrıldı; ölçüm değildir. |
 
 ## Sapmalar (karşılanmayan gereksinimler)
 
@@ -71,3 +73,4 @@ Bir gereksinim karşılanmadığında gereksinim veya ölçüt sonradan değişt
 |---|---|---|
 | B-01 | S5'te BTN'in kuyrukta bekleme süresi her basışta ~10 ms artıyor ve düşmüyor; 30 basışlık koşuda kuyruk doldu (q_hw 16) ve 15 TEL düşürüldü. Hiçbir olayda UartTxTask kesilmesi sayılmadı (tx_n_pre = 0). S3'te (T21) bu birikme görülmedi; S4'te basışlı ölçüm henüz yok. | T21 (S5), T17 logları |
 | B-02 | 1 KB'lık yerel dizi 1 KB'lık ButtonTask stack'ini ~100–150 bayt aştığında FreeRTOS'un stack taşma kontrolü (yöntem 2) devreye giremedi; sistem HardFault'a düştü. Stack'in hemen altında görevin kendi TCB'si duruyor (linker haritası). | T18 ilk sürüm logu, operatörün hata ayıklayıcı gözlemi |
+| B-03 | Arayüzdeki "hat kaybı = TEL sıra boşluğu − tel_dropped" formülü D03'te −2 verdi. Koşunun sonunda düşürülen TEL'lerden sonra hiç TEL gelmediği için bunlar boşluk olarak görünmüyor (son alınan seq 454, üretilen 457). Formül `tel_sent − alınan TEL` olarak değiştirildi; U07'ye bu durumun testi eklendi. | D03 ekran görüntüsü ve ham dökümü |

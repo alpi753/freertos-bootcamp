@@ -132,7 +132,7 @@ class MainWindow(QMainWindow):
             ("pc_lost", "PC · TEL sıra boşluğu", "Bu koşuda TEL sıra numarasında atlanan adet (kartta düşürülenler dahil)"),
             ("tel_dropped", "MCU · tel_dropped", "Kuyruk dolu olduğu için kartın gönderemediği TEL (SUM'dan)"),
             ("btn_dropped", "MCU · btn_dropped", "Kuyruk dolu olduğu için kaybolan BTN (SUM'dan)"),
-            ("uart_lost", "Hat kaybı (boşluk − tel_dropped)", "SUM geldikten sonra hesaplanır; 0 olmalı"),
+            ("uart_lost", "Hat kaybı (tel_sent − alınan TEL)", "SUM geldikten sonra hesaplanır; 0 olmalı. Koşu ortasında bağlanıldıysa anlamsız."),
             ("bad", "Bozuk çerçeve", "64 bayt olmayan ya da tipi bilinmeyen çerçeve"),
         ]
         for i, (k, name, tip) in enumerate(rows):
@@ -168,12 +168,12 @@ class MainWindow(QMainWindow):
         self.res_plot.setLabel("left", "süre", units="ms")
         self.res_plot.setLabel("bottom", "event_id")
         self.res_plot.showGrid(y=True, alpha=0.3)
-        self.res_plot.addLegend(offset=(10, 5))
+        self.res_plot.addLegend(offset=(-10, 5))
         self.exec_plot = pg.PlotWidget(title="ButtonExec = exec + preempt")
         self.exec_plot.setLabel("left", "süre", units="µs")
         self.exec_plot.setLabel("bottom", "event_id")
         self.exec_plot.showGrid(y=True, alpha=0.3)
-        self.exec_plot.addLegend(offset=(10, 5))
+        self.exec_plot.addLegend(offset=(-10, 5))
         plots.addWidget(self.res_plot, 3)
         plots.addWidget(self.exec_plot, 2)
         self.lbl_csv = QLabel("Ölçüm dosyası: —")
