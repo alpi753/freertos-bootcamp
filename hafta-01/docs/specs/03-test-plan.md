@@ -3,7 +3,7 @@
 | Alan | Değer |
 |---|---|
 | Doküman | `hafta-01/docs/specs/03-test-plan.md` |
-| Sürüm | 1.4 (ONAYLANDI — 2026-09-26) |
+| Sürüm | 1.5 (ONAYLANDI — 2026-09-26) |
 | Tarih | 2026-09-25 |
 | Girdi | `01-requirements.md` v1.2, `02-design.md` v1.1 |
 | Çıktı | `docs/test-results.md` (test sonuçları), `measurements/`, `analysis/` (kanıtlar) |
@@ -61,7 +61,7 @@ Bu projede iki tür sonuç var ve farklı ele alınıyor:
 | `TEST_FORCE_QFULL` | Kuyruk derinliği 2, UartTxTask her çerçeveden sonra 50 ms bekler | TC-T13 |
 | `TEST_MEAS_CAP` | Kayıt kapasitesi 64 yerine 4 | TC-T15 |
 | `TEST_LONG_FRAME` | START'ta bir kez 70 karakterlik çerçeve üretmeye çalışır | TC-T16 |
-| `TEST_STACK_OVF` | ButtonTask'ta bilerek büyük yerel dizi | TC-T18 |
+| `TEST_STACK_OVF` | 1: ButtonTask'ta 1 KB yerel dizi (büyük taşma); 2: stack'i koruma desenine kadar tüket (küçük taşma) | TC-T18a, T18b |
 
 **Her test kaydında bulunacaklar:** tarih, git commit kısa hash'i, derleme yapılandırması + açık test bayrakları, sonuç (GEÇTİ/KALDI), kanıt dosyası bağlantısı.
 
@@ -164,7 +164,8 @@ Otomatik olanlar `hil_check.py --tc <ID>` ile çalışır. Betik komutları gön
 | TC | Adımlar | Geçme ölçütü | Karşılar |
 |---|---|---|---|
 | **T17** Bellek payı | S5, **10 dk** koşu, (Op) 30 basış, DUMP | MEM: `min_free_heap ≥ 1024`. Kullanılmayan stack: TelemetryTask ≥ 77, ButtonTask ≥ 52, UartTxTask ≥ 103 word (her biri stack'in %20'si) | SYS-04 |
-| **T18** Stack taşması | Bayrak `TEST_STACK_OVF`; RUNNING'de butona bas | LD2 ~10 Hz yanıp sönüyor; sistem durmuş | SYS-05 |
+| **T18a** Büyük stack taşması | `TEST_STACK_OVF=1` (1 KB yerel dizi, stack'i ve altındaki TCB'yi bozar); RUNNING'de butona bas | Sistem durur ve LD2 ~1 Hz yanıp söner (HardFault görünür). Bu bir **karakterizasyon** testidir: büyük taşmanın FreeRTOS kontrolüne varmadan HardFault'a yol açtığını belgeler | SYS-05 (sınır) |
+| **T18b** Küçük stack taşması | `TEST_STACK_OVF=2` (özyinelemeyle stack tüketilir, yalnızca dipteki koruma deseni bozulur); RUNNING'de butona bas | LD2 ~10 Hz yanıp söner (`vApplicationStackOverflowHook`); sistem durmuş | SYS-05 |
 
 ### 6.4 Hata enjeksiyonu
 
@@ -260,7 +261,7 @@ hafta-01/
 | SYS-02 | R01, T25 | test-results.md, ui/ |
 | SYS-03 | T01 | raw/T01 |
 | SYS-04 | T17 | raw/T17 (MEM) |
-| SYS-05 | T18 | test-results.md (gözlem notu) |
+| SYS-05 | T18b (T18a sınır davranışı) | test-results.md (operatör gözlemi) |
 | TSK-01 | T03 | raw/T03 |
 | TSK-02 | R01, T03 | raw/T03 |
 | TSK-03 | T05 | raw/T05 (CAL) |
@@ -345,3 +346,4 @@ Tasarım §12'deki her adım, aşağıdaki testler geçmeden tamamlanmış sayı
 | 1.2 | 2026-09-26 | T09 Release derlemede değerlendirilir; TQ-2 düzeltildi |
 | 1.3 | 2026-09-26 | T12'ye t₄−t₃ fiziksel alt sınır kontrolü eklendi |
 | 1.4 | 2026-09-26 | U10 (kanca muhasebesi, kartsız) eklendi; T21 adım 7'de S3'te, adım 8'den sonra S5'te; T23 ölçüm yöntemi |
+| 1.5 | 2026-09-26 | T18 ikiye ayrıldı: T18a büyük taşma (HardFault, karakterizasyon), T18b küçük taşma (SYS-05 doğrulaması) |

@@ -3,7 +3,7 @@
 | Alan | Değer |
 |---|---|
 | Doküman | `hafta-01/docs/specs/02-design.md` |
-| Sürüm | 1.8 (ONAYLANDI — 2026-09-26) |
+| Sürüm | 1.10 (ONAYLANDI — 2026-09-26) |
 | Tarih | 2026-09-25 |
 | Girdi | `01-requirements.md` v1.2 |
 | Sonraki doküman | `03-test-plan.md` |
@@ -444,12 +444,19 @@ Karşıladığı: MSG-01…MSG-06, MSG-09, TIM-06, SYS-04.
 
 ---
 
+**Uygulama notları (adım 8):**
+- CAL: `load_mean_us`/`load_max_us` CPU işinin **gerçek** süresidir (TIM2 ile, kesmeler dahil); `adc_mean_us` sıcaklık okumasının süresidir; `hook_ns` açılıştaki T23 ölçümüdür. Hepsi START'ta sıfırlanır.
+- CPU yükü (`app_load.c`): xorshift32 hesap döngüsü; açılışta kesmeler kapalıyken 20 000 tur DWT ile ölçülerek "tur/ms" kalibre edilir.
+- RTS: START'ta ve STOP'ta `uxTaskGetSystemState` ile iki görüntü; görev başına fark ve toplam koşu süresine oranı (binde). Görev listesi: TelemetryTask, ButtonTask, UartTxTask, IDLE, Tmr Svc.
+- MEM: `xPortGetMinimumEverFreeHeapSize` ve `uxTaskGetStackHighWaterMark` (word).
+
 ## 10. Hata ve güvenlik kancaları
 
 | Kanca | Davranış |
 |---|---|
 | `vApplicationStackOverflowHook` | Kesmeleri kapatır, LD2 10 Hz yanıp söner (SYS-05) |
 | `vApplicationMallocFailedHook` | Aynı, 2 Hz |
+| `HardFault_Handler` | Aynı, 1 Hz (`stm32l4xx_it.c`, USER CODE). Stack taşması kancasına ulaşılamadan belleğin bozulduğu durumları görünür yapar (bulgu B-02) |
 | `configASSERT` | Mevcut tanım (kesmeleri kapat + sonsuz döngü); debug'da hata anında durur |
 
 ---
@@ -563,3 +570,5 @@ Her adım ayrı bir commit ve kendi mini doğrulamasıyla tamamlanacak:
 | 1.6 | 2026-09-26 | §12: komut kanalı ve ADC okuma adım 4'e alındı |
 | 1.7 | 2026-09-26 | Uygulama adımı 6: §8.1 kayıt uygulama notları (lost kodları 0/1/2, have maskesi, t₃/t₄ yerleri) |
 | 1.8 | 2026-09-26 | Uygulama adımı 7: §8.2 kanca uygulama notları; SUM'daki `frame_err` de START'ta sıfırlanır |
+| 1.9 | 2026-09-26 | Uygulama adımı 8: CAL/MEM/RTS ve CPU yükü uygulama notları (§9) |
+| 1.10 | 2026-09-26 | §10: HardFault → LD2 1 Hz (T18a bulgusu) |

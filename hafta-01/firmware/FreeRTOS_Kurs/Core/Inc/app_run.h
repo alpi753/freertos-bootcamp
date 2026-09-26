@@ -20,6 +20,9 @@ typedef struct {
     uint16_t btn_dropped;    /* QUE-03 */
     uint16_t bounce_rej;     /* ISR-03 (adım 5) */
     uint8_t  q_hw;           /* kuyruk en yüksek doluluk (QUE-05) */
+    /* CAL (TSK-03, TSK-08) */
+    uint32_t load_n, load_sum_us, load_max_us;   /* CPU yükünün gerçek süresi */
+    uint32_t adc_n, adc_sum_us;                  /* sıcaklık okuma süresi */
 } run_counters_t;
 
 extern volatile run_state_t     g_run_state;

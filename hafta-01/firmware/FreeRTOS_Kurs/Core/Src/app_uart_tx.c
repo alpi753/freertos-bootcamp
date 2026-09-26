@@ -22,6 +22,8 @@
 #include "app_selftest.h"
 #include "app_meas.h"
 #include "app_ts.h"
+#include "app_stats.h"
+#include "cmsis_os.h"
 
 #if defined(__has_include)
 #  if __has_include("build_info.h")
@@ -38,6 +40,7 @@
 #endif
 
 extern UART_HandleTypeDef huart2;
+extern osThreadId_t TelemetryTaskHandle, ButtonTaskHandle, UartTxTaskHandle;   /* main.c (CubeMX) */
 
 static TaskHandle_t s_self;
 static volatile uint16_t s_tx_btn;        /* gönderilmekte olan BTN'in olay no'su (0 = BTN değil) */
@@ -133,6 +136,33 @@ static void send_recs(void)
     }
 }
 
+/** CAL: CPU yükü, ADC ve kanca ölçümleri (TSK-03, TSK-08, TIM-12). */
+static void send_cal(void)
+{
+    run_counters_t c = g_cnt;
+    send_ctrl(FMT_CAL, (unsigned)SCN_TABLE[g_run_scn].load_us,
+              c.load_n ? c.load_sum_us / c.load_n : 0u, c.load_max_us,
+              c.adc_n ? c.adc_sum_us / c.adc_n : 0u, g_selftest.t23_hook_ns);
+}
+
+/** MEM: en düşük boş heap ve görevlerin hiç kullanılmamış stack'i (SYS-04). */
+static void send_mem(void)
+{
+    send_ctrl(FMT_MEM, stats_min_free_heap(),
+              (unsigned)stats_stack_hw_words(TelemetryTaskHandle),
+              (unsigned)stats_stack_hw_words(ButtonTaskHandle),
+              (unsigned)stats_stack_hw_words(UartTxTaskHandle));
+}
+
+/** RTS: koşu boyunca görev başına CPU süresi (TIM-06). */
+static void send_rts(void)
+{
+    stats_task_t t;
+    for (uint32_t i = 0; stats_task(i, &t); i++) {
+        send_ctrl(FMT_RTS, t.name, t.run_us, (unsigned)t.pct_x10);
+    }
+}
+
 /** Kuyrukta kalan çerçeveleri gönderir (STOP'ta, ACK'ten önce). */
 static void drain_queue(void)
 {
@@ -158,6 +188,7 @@ static void cmd_execute(const char *line)
         send_ctrl("ACK,SCN,S%u", (unsigned)g_run_scn);
         break;
     case CMD_START:
+        stats_snapshot_start();                /* RTS için ilk görüntü */
         run_start();
         send_ctrl("ACK,START,S%u", (unsigned)g_run_scn);
 #if TEST_LONG_FRAME
@@ -168,13 +199,17 @@ static void cmd_execute(const char *line)
     case CMD_STOP:
         run_stop();
         drain_queue();                         /* koşunun son TEL/BTN'leri ACK'ten önce gitsin */
+        stats_snapshot_stop();                 /* RTS için ikinci görüntü */
         send_ctrl("ACK,STOP");
         break;
     case CMD_DUMP:
         send_ctrl("ACK,DUMP,%u", (unsigned)meas_count());
         send_ver();
-        send_recs();                           /* CAL/MEM/RTS adım 8'de */
+        send_recs();
         send_sum();
+        send_cal();
+        send_mem();
+        send_rts();
         send_ctrl("END,DUMP");
         break;
     default:

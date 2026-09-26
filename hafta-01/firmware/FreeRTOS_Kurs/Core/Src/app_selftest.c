@@ -5,6 +5,7 @@
 #include "app_selftest.h"
 #include "app_ts.h"
 #include "app_meas.h"
+#include "app_load.h"
 #include "FreeRTOS.h"
 #include "task.h"
 
@@ -40,6 +41,10 @@ void app_selftest_run(void)
     /* --- T23: görev değiştirme kancalarının ek yükü */
     g_selftest.t23_hook_ns = meas_hook_cost_ns();
     g_selftest.t23_pass = (g_selftest.t23_hook_ns > 0u && g_selftest.t23_hook_ns < 2000u);
+
+    /* --- S4/S5 CPU yükü kalibrasyonu (TSK-03) */
+    cpu_load_calibrate();
+    g_selftest.load_iters_per_ms = cpu_load_iters_per_ms();
 
     g_selftest.done = 1;
 }

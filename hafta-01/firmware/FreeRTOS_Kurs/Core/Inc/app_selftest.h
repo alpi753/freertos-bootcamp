@@ -24,6 +24,8 @@ typedef struct {
     /* T23: bir çıkış+giriş kanca çiftinin ortalama maliyeti [ns]. Geçme: 0 < … < 2000. */
     uint32_t t23_hook_ns;
     uint32_t t23_pass;
+    /* CPU yükü kalibrasyonu: 1 ms'de kaç hesap turu */
+    uint32_t load_iters_per_ms;
 } app_selftest_t;
 
 extern volatile app_selftest_t g_selftest;

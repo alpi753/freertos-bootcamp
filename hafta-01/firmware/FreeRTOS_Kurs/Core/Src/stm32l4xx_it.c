@@ -24,6 +24,7 @@
 /* USER CODE BEGIN Includes */
 #include "app_ts.h"
 #include "app_button.h"
+#include "app_fault.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -89,6 +90,7 @@ void NMI_Handler(void)
 void HardFault_Handler(void)
 {
   /* USER CODE BEGIN HardFault_IRQn 0 */
+  app_fault_blink(1);   /* HardFault → LD2 1 Hz (tasarım §10); stack taşmasından (10 Hz) ayırt edilir */
 
   /* USER CODE END HardFault_IRQn 0 */
   while (1)

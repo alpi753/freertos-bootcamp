@@ -15,6 +15,10 @@ Kullanım (Windows örneği):
     py interface/tools/hil_check.py --port COM5 --tc T16               # TEST_LONG_FRAME=1 derlemesi (Release)
     py interface/tools/hil_check.py --port COM5 --tc T21 --scn 3       # etkileşimli: 10 basış
     py interface/tools/hil_check.py --port COM5 --tc T22               # etkileşimli: 10 basış (S0)
+    py interface/tools/hil_check.py --port COM5 --tc adim8 --secs 30   # T04, T05, T06, T24 (otomatik)
+    py interface/tools/hil_check.py --port COM5 --tc T17 --secs 600    # etkileşimli: 10 dk S5, 30 basış
+    py interface/tools/hil_check.py --port COM5 --tc T18 --ovf 1       # TEST_STACK_OVF=1 derlemesi (T18a)
+    py interface/tools/hil_check.py --port COM5 --tc T18 --ovf 2       # TEST_STACK_OVF=2 derlemesi (T18b)
 
 Her koşu ham UART kaydını docs/test-results/raw/<TC>-<tarih>.log dosyasına yazar.
 Satır biçimi:  <PC ms>\t<çerçeve>   (PC zamanı yalnızca hata ayıklama içindir;
@@ -260,7 +264,7 @@ def full_dump(link):
     link.send("CMD,DUMP")
     link.wait_for("END,DUMP", timeout=10)
     frames = [f for _, f in link.frames[i:] if not f.startswith(b">>")]
-    recs, pres, s, ver = [], {}, None, None
+    recs, pres, s, ver, cal, mem, rts = [], {}, None, None, None, None, []
     for f in frames:
         x = fields(f)
         if x[0] == "REC":
@@ -274,9 +278,15 @@ def full_dump(link):
                           "rec_overflow", "bounce_rej", "frame_err"], [x[1]] + [int(v) for v in x[2:]]))
         elif x[0] == "VER":
             ver = x
+        elif x[0] == "CAL":
+            cal = dict(zip(["load_target", "load_mean", "load_max", "adc_mean", "hook_ns"], [int(v) for v in x[1:]]))
+        elif x[0] == "MEM":
+            mem = dict(zip(["min_free_heap", "hw_tel", "hw_btn", "hw_tx"], [int(v) for v in x[1:]]))
+        elif x[0] == "RTS":
+            rts.append({"task": x[1], "run_us": int(x[2]), "pct_x10": int(x[3])})
     for r in recs:
         r["pre"] = pres.get(r["id"])
-    return {"ver": ver, "recs": recs, "sum": s, "frames": frames}
+    return {"ver": ver, "recs": recs, "sum": s, "frames": frames, "cal": cal, "mem": mem, "rts": rts}
 
 
 def require_flags(link, want):
@@ -453,12 +463,111 @@ def tc_t22(link, presses=10):
                  f"tx_n_pre {[r['pre']['tx_n'] for r in recs if r['pre']]}")
 
 
+# ---- Adım 8: CPU yükü, CAL / MEM / RTS ---------------------------------------
+
+STACK_WORDS = {"hw_tel": 384, "hw_btn": 256, "hw_tx": 512}     # §5 tasarım; ölçüt %20
+
+
+def timed_run(link, scn, secs):
+    i0 = len(link.frames)
+    start(link, scn)
+    link.drain(secs)
+    stop(link)
+    d = full_dump(link)
+    d["tel"] = [fields(f) for _, f in link.frames[i0:] if f.startswith(b"TEL,")]
+    return d
+
+
+def print_rts(d):
+    for r in d["rts"]:
+        print(f"    RTS {r['task']:<14} {r['run_us']:>10} us  %{r['pct_x10'] / 10:5.1f}")
+
+
+def tc_adim8(link, secs=30.0):
+    """T04 (S0 sessizlik), T05 (S4/S5 yük), T06 (sıcaklık), T24 (RTS toplamı)."""
+    if not require_flags(link, 0):
+        return [False]
+    res = []
+    print(f"-- S0 ({secs:.0f} s) --")
+    d = timed_run(link, 0, secs)
+    tel_pct = next((r["pct_x10"] for r in d["rts"] if r["task"] == "TelemetryTask"), None)
+    res.append(check("T04 S0 sessizligi", not d["tel"] and tel_pct is not None and tel_pct < 1,
+                     f"TEL {len(d['tel'])} (0), TelemetryTask payi %{(tel_pct or 0) / 10:.1f} (< %0.1)"))
+    for scn, target in ((4, 2000), (5, 5000)):
+        print(f"-- S{scn} ({secs:.0f} s) --")
+        d = timed_run(link, scn, secs)
+        c = d["cal"]
+        ok = c["load_target"] == target and abs(c["load_mean"] - target) <= 0.10 * target
+        res.append(check(f"T05 S{scn} CPU yuku", ok,
+                         f"hedef {c['load_target']} us, ortalama {c['load_mean']} us, en buyuk {c['load_max']} us (±%10)"))
+        print_rts(d)
+    print(f"-- S1 ({secs:.0f} s) --")
+    d = timed_run(link, 1, secs)
+    temps = [int(f[3]) for f in d["tel"]]
+    jumps = max((abs(a - b) for a, b in zip(temps, temps[1:])), default=0)
+    res.append(check("T06 sicaklik", bool(temps) and all(150 <= t <= 450 for t in temps) and jumps <= 20,
+                     f"{len(temps)} okuma, aralik {min(temps) / 10 if temps else '-'}…{max(temps) / 10 if temps else '-'} C, "
+                     f"ardisik en buyuk fark {jumps / 10} C, ADC ortalama {d['cal']['adc_mean']} us"))
+    print(f"-- S3 ({secs:.0f} s) --")
+    d = timed_run(link, 3, secs)
+    print_rts(d)
+    names = {r["task"] for r in d["rts"]}
+    total = sum(r["pct_x10"] for r in d["rts"])
+    need = {"TelemetryTask", "ButtonTask", "UartTxTask", "IDLE"}
+    res.append(check("T24 run-time stats", need <= names and abs(total - 1000) <= 10,
+                     f"gorevler {sorted(names)}, yuzde toplami %{total / 10:.1f} (100 ± 1)"))
+    return res
+
+
+def tc_t17(link, secs=600.0, presses=30):
+    """T17: 10 dk S5 + 30 basış → bellek payı (SYS-04)."""
+    if not require_flags(link, 0):
+        return False
+    t0 = start(link, 5)
+    say(f"S5 kosusu {secs / 60:.0f} dk surecek. Bu surede butona {presses} kez bas (aralikli, duzensiz).")
+    collect_btn(link, presses, timeout=secs, settle=0)
+    remain = secs - (link.ms() - t0) / 1000
+    if remain > 0:
+        print(f"    {remain:.0f} s daha bekleniyor...", flush=True)
+        link.drain(remain)
+    stop(link)
+    d = full_dump(link)
+    m = d["mem"]
+    parts = [f"min_free_heap {m['min_free_heap']} B (>= 1024)"]
+    ok = m["min_free_heap"] >= 1024
+    for k, words in STACK_WORDS.items():
+        need = -(-words * 20 // 100)
+        ok &= m[k] >= need
+        parts.append(f"{k} {m[k]}/{words} word (>= {need})")
+    print_rts(d)
+    return check("T17 bellek payi", ok, ", ".join(parts))
+
+
+def tc_t18(link, level):
+    """T18a (büyük taşma → HardFault, LD2 1 Hz) / T18b (küçük taşma → FreeRTOS kancası, LD2 10 Hz)."""
+    want_flags, want_hz, name = (0x08, "1", "T18a buyuk tasma") if level == 1 else (0x18, "10", "T18b kucuk tasma")
+    if not require_flags(link, want_flags):
+        return False
+    start(link, 0)
+    say("Butona BIR kez bas. Kart yanit vermeyi kesmeli; yesil LED'i (LD2) izle.")
+    link.drain(8)
+    ans = input("    LD2 nasil yanip soniyor? (1 = yavas ~1 Hz, 10 = hizli ~10 Hz, 0 = yanip sonmuyor): ").strip()
+    alive = True
+    try:
+        link.send("CMD,STOP"); link.wait_for("ACK,STOP", timeout=2)
+    except TimeoutError:
+        alive = False
+    return check(name, ans == want_hz and not alive,
+                 f"LD2 {ans} Hz (beklenen {want_hz} Hz: "
+                 f"{'HardFault' if level == 1 else 'vApplicationStackOverflowHook'}), kart yanit vermiyor: {not alive}")
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--port", help="ör. COM5; boşsa portlar listelenir")
-    ap.add_argument("--tc", default="adim4", choices=["adim4", "T02", "T03", "T11", "T14", "T07", "T08", "T12", "T13", "T15", "T16", "T21", "T22"])
+    ap.add_argument("--tc", default="adim4", choices=["adim4", "T02", "T03", "T11", "T14", "T07", "T08", "T12", "T13", "T15", "T16", "T21", "T22", "adim8", "T17", "T18"])
     ap.add_argument("--secs", type=float, default=60.0, help="koşu süresi (test planı: 60 s)")
     ap.add_argument("--scn", type=int, default=3, help="T21 için senaryo (varsayılan S3)")
+    ap.add_argument("--ovf", type=int, default=2, choices=[1, 2], help="T18: 1 = büyük taşma (T18a), 2 = küçük (T18b)")
     a = ap.parse_args()
 
     if not a.port:
@@ -482,6 +591,12 @@ def main():
             results.append(tc_t21(link, a.scn)); scns = []
         elif a.tc == "T22":
             results.append(tc_t22(link)); scns = []
+        elif a.tc == "adim8":
+            results.extend(tc_adim8(link, a.secs)); scns = []
+        elif a.tc == "T17":
+            results.append(tc_t17(link, a.secs)); scns = []
+        elif a.tc == "T18":
+            results.append(tc_t18(link, a.ovf)); scns = []
         for scn in scns:
             print(f"-- S{scn} kosusu ({a.secs:.0f} s) --")
             r = run_once(link, scn, a.secs)

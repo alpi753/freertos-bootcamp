@@ -47,6 +47,9 @@ extern const scn_cfg_t SCN_TABLE[SCN_COUNT];
 
 /* VER çerçevesindeki bit maskesi (tasarım §9) */
 #define APP_TEST_FLAGS  ((TEST_FORCE_QFULL ? 1u : 0u) | (TEST_MEAS_CAP ? 2u : 0u) | \
-                         (TEST_LONG_FRAME  ? 4u : 0u) | (TEST_STACK_OVF ? 8u : 0u))
+                         (TEST_LONG_FRAME  ? 4u : 0u) | (TEST_STACK_OVF ? 8u : 0u) | \
+                         (TEST_STACK_OVF == 2 ? 0x10u : 0u))
+/* TEST_STACK_OVF: 1 = büyük taşma (1 KB dizi, TCB'yi de bozar), 2 = küçük taşma
+ * (stack yalnızca dipteki koruma desenine kadar kullanılır). TC-T18a / T18b. */
 
 #endif /* APP_CONFIG_H */
