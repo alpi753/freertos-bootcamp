@@ -3,7 +3,7 @@
 | Alan | Değer |
 |---|---|
 | Doküman | `hafta-01/docs/specs/03-test-plan.md` |
-| Sürüm | 1.0 (ONAYLANDI — 2026-09-25) |
+| Sürüm | 1.1 (ONAYLANDI — 2026-09-26) |
 | Tarih | 2026-09-25 |
 | Girdi | `01-requirements.md` v1.2, `02-design.md` v1.1 |
 | Çıktı | `docs/test-results.md` (test sonuçları), `measurements/`, `analysis/` (kanıtlar) |
@@ -317,12 +317,12 @@ Tasarım §12'deki her adım, aşağıdaki testler geçmeden tamamlanmış sayı
 | 1 Repo düzeni | R03 (`.gitignore` maddesi) |
 | 2 CubeMX | R02 |
 | 3 `app_ts` + `app_frame` | U01, U03, U04, U06, T19, T20 |
-| 4 Kuyruk + UartTxTask | T02, T03, T11, T14 |
+| 4 Kuyruk + UartTxTask + komutlar + TelemetryTask | U02, U05, T02, T03, T11, T14 |
 | 5 ButtonTask + ISR | T07, T08, T09 |
 | 6 `app_meas` t₀…t₄ | U08, T12, T13, T15, T16 |
 | 7 Trace kancaları | T21, T22, T23 |
-| 8 ADC, CPU yükü, stats, MEM | U02, T04, T05, T06, T17, T18, T24, T25 |
-| 9 PC arayüzü | U05, U07, D01…D06, T10 |
+| 8 CPU yükü, stats, MEM | T04, T05, T06, T17, T18, T24, T25 |
+| 9 PC arayüzü | U07, D01…D06, T10 |
 | 10 Analiz + dokümanlar | U09, R01, R03, E00…E06 |
 
 ---
@@ -340,3 +340,4 @@ Tasarım §12'deki her adım, aşağıdaki testler geçmeden tamamlanmış sayı
 |---|---|---|
 | 0.1 | 2026-09-25 | İlk taslak |
 | 1.0 | 2026-09-25 | Kursiyer onayı; TQ-1 kabul edildi (VER, MSG-09) |
+| 1.1 | 2026-09-26 | §10: U02 ve U05 adım 4'e alındı (komut kanalı ve ADC okuma öne çekildi) |

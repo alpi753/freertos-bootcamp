@@ -15,6 +15,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <inttypes.h>
+#include <stdarg.h>
 
 #define FRAME_LEN      64u     /* toplam bayt */
 #define FRAME_PAYLOAD  63u     /* en fazla içerik karakteri */
@@ -56,5 +57,9 @@ extern volatile uint32_t g_frame_err;
  */
 bool frame_build(char out[FRAME_LEN], const char *fmt, ...)
     __attribute__((format(printf, 2, 3)));
+
+/** frame_build ile aynı; va_list alan sürüm (başka değişken argümanlı fonksiyonlardan çağırmak için). */
+bool frame_vbuild(char out[FRAME_LEN], const char *fmt, va_list ap)
+    __attribute__((format(printf, 2, 0)));
 
 #endif /* APP_FRAME_H */

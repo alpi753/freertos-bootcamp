@@ -9,6 +9,7 @@
 
 #if defined(DEBUG) && !defined(UNIT_TEST)
 #include "FreeRTOS.h"
+#include "task.h"                  /* configASSERT → taskDISABLE_INTERRUPTS() */
 #define FRAME_ASSERT(x)  configASSERT(x)   /* Debug: hatada dur (MSG-02) */
 #else
 #define FRAME_ASSERT(x)  ((void)0)         /* Release / PC: say ve devam et */
@@ -16,14 +17,11 @@
 
 volatile uint32_t g_frame_err = 0;
 
-bool frame_build(char out[FRAME_LEN], const char *fmt, ...)
+bool frame_vbuild(char out[FRAME_LEN], const char *fmt, va_list ap)
 {
     /* Önce geçici tampona yaz: hata olursa çağıranın tamponu bozulmaz. */
     char tmp[FRAME_LEN + 32];
-    va_list ap;
-    va_start(ap, fmt);
     int n = vsnprintf(tmp, sizeof tmp, fmt, ap);
-    va_end(ap);
 
     /* vsnprintf, tampon yetmese bile TAM uzunluğu döndürür; kesilme böyle anlaşılır. */
     if (n < 0 || n > (int)FRAME_PAYLOAD) {
@@ -35,4 +33,13 @@ bool frame_build(char out[FRAME_LEN], const char *fmt, ...)
     memset(out + n, ' ', FRAME_PAYLOAD - (size_t)n);
     out[FRAME_LEN - 1] = '\n';
     return true;
+}
+
+bool frame_build(char out[FRAME_LEN], const char *fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    bool ok = frame_vbuild(out, fmt, ap);
+    va_end(ap);
+    return ok;
 }

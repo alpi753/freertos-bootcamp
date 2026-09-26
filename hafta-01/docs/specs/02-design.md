@@ -3,7 +3,7 @@
 | Alan | Değer |
 |---|---|
 | Doküman | `hafta-01/docs/specs/02-design.md` |
-| Sürüm | 1.5 (ONAYLANDI — 2026-09-26) |
+| Sürüm | 1.6 (ONAYLANDI — 2026-09-26) |
 | Tarih | 2026-09-25 |
 | Girdi | `01-requirements.md` v1.2 |
 | Sonraki doküman | `03-test-plan.md` |
@@ -499,12 +499,12 @@ Her adım ayrı bir commit ve kendi mini doğrulamasıyla tamamlanacak:
 1. **Repo düzeni:** `project/` → `firmware/`, `.gitignore`, iskelet klasörler.
 2. **CubeMX değişiklikleri** C-1…C-8 + boş görev gövdeleri (`app_tasks_stub.c`) → derle.
 3. **`app_ts` + `app_frame`** → TEL çerçevesini sabit periyotta gönder (DMA'sız bile olur); PC'de 64 B çerçeve görülür.
-4. **Kuyruk + UartTxTask (DMA + TC)** → TelemetryTask ile S1–S3.
+4. **Kuyruk + UartTxTask (DMA + TC) + komut kanalı (§7.5) + TelemetryTask (ADC sıcaklık dahil)** → S1–S3. Komut kanalı 9. adımdan buraya alındı: kart üstü testler koşuyu komutla başlatıp SUM ile doğrulayabilsin diye.
 5. **ButtonTask + ISR + debounce** → BTN çerçeveleri.
 6. **`app_meas`:** t₀…t₄ → REC dökümü.
 7. **Trace kancaları** → PRE, kanca ek yükü (CAL).
-8. **ADC sıcaklık, CPU yükü, run-time stats, MEM** → S4/S5, SUM/CAL/MEM/RTS.
-9. **PC arayüzü:** bağlantı + canlı görünüm → komutlar → döküm + CSV → grafikler.
+8. **CPU yükü, run-time stats, MEM, CAL** → S4/S5, SUM/CAL/MEM/RTS.
+9. **PC arayüzü:** bağlantı + canlı görünüm → komut düğmeleri → döküm + CSV → grafikler.
 10. **`analyze.py`**, `README.md`, `docs/*.md`.
 
 ---
@@ -548,3 +548,4 @@ Her adım ayrı bir commit ve kendi mini doğrulamasıyla tamamlanacak:
 | 1.3 | 2026-09-26 | Görevler statik ayrılır (*Allocation = Static*); heap bütçesi güncellendi |
 | 1.4 | 2026-09-26 | UartTxTask *As weak* (CubeMX ilk görev için *As external* sunmuyor) |
 | 1.5 | 2026-09-26 | Uygulama adımı 3: biçimler `app_frame.h`'de, REC fark doyurma sınırı, SUM alan genişlikleri (§9) |
+| 1.6 | 2026-09-26 | §12: komut kanalı ve ADC okuma adım 4'e alındı |

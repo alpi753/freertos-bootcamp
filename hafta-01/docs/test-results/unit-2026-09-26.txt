@@ -1,4 +1,4 @@
-# Kartsız birim testleri — 2026-09-26 09:13 UTC
+# Kartsız birim testleri — 2026-09-26 09:28 UTC
 # gcc: gcc (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0
 # komut: make -C firmware/tests_host clean test
 
@@ -7,4 +7,7 @@
 [GECTI] U04    aralik aritmetigi (tasma)
 [GECTI] U01    frame_build: 64 B, dolgu, LF, kesmeme
 [GECTI] U06    en uzun cerceveler <= 63 karakter
-== 43 kontrol, 0 hata ==
+[GECTI] U02    sicaklik donusumu
+[GECTI] U05    komut ayristirici
+[GECTI] U05    komut durum tablosu
+== 79 kontrol, 0 hata ==

@@ -23,6 +23,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "app_ts.h"
+#include "app_run.h"
 
 /* USER CODE END Includes */
 
@@ -166,6 +167,7 @@ int main(void)
   /* USER CODE END RTOS_TIMERS */
 
   /* USER CODE BEGIN RTOS_QUEUES */
+  app_rtos_objects_create();   /* TX kuyruğu: görevler oluşturulmadan ÖNCE (tasarım §5) */
   /* add queues, ... */
   /* USER CODE END RTOS_QUEUES */
 
