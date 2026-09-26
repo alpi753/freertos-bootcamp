@@ -62,3 +62,43 @@ def rec_absolute(rec: dict):
             break
         t[k] = (t[k - 1] + rec[key]) % U32
     return t
+
+
+class FrameSplitter:
+    """Bayt akışını LF'de böler (UI-02).
+
+    - Bağlantı akışın ortasında açıldıysa ilk LF'ye kadar gelen yarım çerçeve
+      bozuk sayılmadan atılır (senkronlanma).
+    - Uzunluğu 64 olmayan çerçeve `bad` sayacına eklenir ve atılır; bir
+      sonraki LF'den itibaren akış kendiliğinden yeniden hizalanır.
+    - LF gelmeden 2×64 bayt birikirse (çöp veri) tampon atılır ve bozuk sayılır.
+    """
+
+    MAX_PENDING = 2 * FRAME_LEN
+
+    def __init__(self):
+        self.buf = b""
+        self.synced = False
+        self.bad = 0
+
+    def reset(self):
+        self.buf, self.synced = b"", False
+
+    def feed(self, data: bytes) -> list[bytes]:
+        self.buf += data
+        out = []
+        while b"\n" in self.buf:
+            raw, self.buf = self.buf.split(b"\n", 1)
+            raw += b"\n"
+            if not self.synced:
+                self.synced = True
+                if len(raw) != FRAME_LEN:
+                    continue
+            if len(raw) != FRAME_LEN:
+                self.bad += 1
+                continue
+            out.append(raw)
+        if len(self.buf) > self.MAX_PENDING:
+            self.buf = b""
+            self.bad += 1
+        return out

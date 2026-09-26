@@ -19,6 +19,7 @@ Kullanım (Windows örneği):
     py interface/tools/hil_check.py --port COM5 --tc T17 --secs 600    # etkileşimli: 10 dk S5, 30 basış
     py interface/tools/hil_check.py --port COM5 --tc T18 --ovf 1       # TEST_STACK_OVF=1 derlemesi (T18a)
     py interface/tools/hil_check.py --port COM5 --tc T18 --ovf 2       # TEST_STACK_OVF=2 derlemesi (T18b)
+    py interface/tools/hil_check.py --port COM5 --tc T10               # komut protokolü (otomatik)
 
 Her koşu ham UART kaydını docs/test-results/raw/<TC>-<tarih>.log dosyasına yazar.
 Satır biçimi:  <PC ms>\t<çerçeve>   (PC zamanı yalnızca hata ayıklama içindir;
@@ -561,10 +562,42 @@ def tc_t18(link, level):
                  f"LD2 {ans} Hz (beklenen {want_hz} Hz: "
                  f"{'HardFault' if level == 1 else 'vApplicationStackOverflowHook'}), kart yanit vermiyor: {not alive}")
 
+# ---- Adım 9: komut protokolü ------------------------------------------------
+
+def next_reply(link, timeout=3.0):
+    """Araya giren TEL/BTN'leri atlayıp ilk ACK/NAK çerçevesini döndürür."""
+    end = time.monotonic() + timeout
+    while time.monotonic() < end:
+        for f in link.pump():
+            if f[:4] in (b"ACK,", b"NAK,"):
+                return f.decode("ascii").rstrip()
+    return "(yanit yok)"
+
+
+def tc_t10(link):
+    """T10: komut protokolü dizisi (MSG-07, MSG-08)."""
+    link.send("CMD,STOP"); link.drain(0.5)          # başlangıç: koşu dışı
+    seq = [("CMD,SCN,3", "ACK,SCN,S3"), ("CMD,START", "ACK,START,S3"), ("CMD,SCN,2", "NAK,BUSY"),
+           ("CMD,STOP", "ACK,STOP"), ("CMD,STOP", "NAK,STATE"), ("CMD,DUMP", "ACK,DUMP,"),
+           ("CMD,SCN,9", "NAK,ARG"), ("XYZ", "NAK,CMD")]
+    ok_all = True
+    for cmd, want in seq:
+        link.send(cmd)
+        got = next_reply(link)
+        ok = got.startswith(want) if want.endswith(",") else got == want
+        if cmd == "CMD,DUMP" and ok:
+            try:
+                link.wait_for("END,DUMP", timeout=10)
+            except TimeoutError:
+                ok, got = False, got + " (END,DUMP gelmedi)"
+        ok_all &= check(f"T10 {cmd:<10}", ok, f"{got}  (beklenen {want}{'…END' if cmd == 'CMD,DUMP' else ''})")
+    return ok_all
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--port", help="ör. COM5; boşsa portlar listelenir")
-    ap.add_argument("--tc", default="adim4", choices=["adim4", "T02", "T03", "T11", "T14", "T07", "T08", "T12", "T13", "T15", "T16", "T21", "T22", "adim8", "T17", "T18"])
+    ap.add_argument("--tc", default="adim4", choices=["adim4", "T02", "T03", "T11", "T14", "T07", "T08", "T12", "T13", "T15", "T16", "T21", "T22", "adim8", "T17", "T18", "T10"])
     ap.add_argument("--secs", type=float, default=60.0, help="koşu süresi (test planı: 60 s)")
     ap.add_argument("--scn", type=int, default=3, help="T21 için senaryo (varsayılan S3)")
     ap.add_argument("--ovf", type=int, default=2, choices=[1, 2], help="T18: 1 = büyük taşma (T18a), 2 = küçük (T18b)")
@@ -595,6 +628,8 @@ def main():
             results.extend(tc_adim8(link, a.secs)); scns = []
         elif a.tc == "T17":
             results.append(tc_t17(link, a.secs)); scns = []
+        elif a.tc == "T10":
+            results.append(tc_t10(link)); scns = []
         elif a.tc == "T18":
             results.append(tc_t18(link, a.ovf)); scns = []
         for scn in scns:
