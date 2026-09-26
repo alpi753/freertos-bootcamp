@@ -3,7 +3,7 @@
 | Alan | Değer |
 |---|---|
 | Doküman | `hafta-01/docs/specs/02-design.md` |
-| Sürüm | 1.1 (ONAYLANDI — 2026-09-25) |
+| Sürüm | 1.4 (ONAYLANDI — 2026-09-26) |
 | Tarih | 2026-09-25 |
 | Girdi | `01-requirements.md` v1.2 |
 | Sonraki doküman | `03-test-plan.md` |
@@ -74,7 +74,8 @@ Karşıladığı: DOC-01, DOC-05, DOC-06.
 | C-3 | **USART2 DMA** | `USART2_TX` → **DMA1 Channel 7**, Normal mod, Memory increment, Byte/Byte, öncelik Low; DMA kesmesi öncelik **6** | DMA ile gönderim (D-02) |
 | C-4 | **TIM2** | Clock source Internal, Prescaler **79**, Counter period **0xFFFFFFFF**, kesme yok | 1 MHz, 32-bit serbest çalışan zaman sayacı (TIM-01) |
 | C-5 | **ADC1** | Temperature Sensor Channel etkin; 12-bit; tek dönüşüm; yazılım tetikleme; örnekleme **640.5 cycles** | Sıcaklık telemetrisi (TSK-08) |
-| C-6 | **FREERTOS** | `defaultTask` silinir; görevler ve kuyruk kodda oluşturulur (§5) | SYS-01 |
+| C-6 | **FREERTOS → Tasks and Queues** | CubeMX son görevin silinmesine izin vermiyor. Bu yüzden `defaultTask` → `TelemetryTask` olarak yeniden adlandırılır, `ButtonTask` ve `UartTxTask` eklenir (§5 tablosundaki öncelik ve stack değerleriyle). *Allocation = **Static***. *Code Generation Option*: TelemetryTask ve ButtonTask **As external**; UartTxTask **As weak** (CubeMX `main.c`'deki ilk görev için *As external* sunmuyor; *As weak* ile CubeMX'in boş gövdesi `__weak` olur ve `app_uart_tx.c`'deki gövde onun yerine bağlanır); giriş fonksiyonları `app_*.c` dosyalarında yazılır. Kuyruk CubeMX'te **tanımlanmaz**, kodda oluşturulur. | SYS-01 |
+| C-8 | **FREERTOS → Advanced Settings** | `USE_NEWLIB_REENTRANT` **1** | Üç görev de `vsnprintf` çağırıyor; newlib'in global durumu (errno vb.) görev başına ayrılır |
 | C-7 | **FREERTOS config** | `TOTAL_HEAP_SIZE` **16384**, `CHECK_FOR_STACK_OVERFLOW` **2**, `USE_MALLOC_FAILED_HOOK` **1**, `GENERATE_RUN_TIME_STATS` **1**, `USE_APPLICATION_TASK_TAG` **1** | SYS-03/04/05, TIM-06/07 |
 
 > 💡 **Neden kesme önceliği 6?** Cortex-M4'te **küçük sayı = yüksek öncelik**. FreeRTOS'ta `configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY = 5` tanımlı; bu, "FreeRTOS API'sini (`...FromISR`) çağırabilecek en yüksek öncelik 5'tir" demek. 0–4 arası kesmeler RTOS'un kritik bölgelerinde bile kesebilir, ama RTOS fonksiyonu çağıramaz. Üç kesmemiz de `FromISR` çağırdığı için ≥5 olmalı. 6 seçtik ki 5 ileride daha acil bir iş için boş kalsın.
@@ -111,7 +112,9 @@ Karşıladığı: TIM-01, TIM-04, TIM-06.
 
 ## 5. RTOS nesneleri
 
-Nesneler `MX_FREERTOS_Init()` içindeki `USER CODE` bölümünde **doğal FreeRTOS API'si** (`xTaskCreate`, `xQueueCreate`) ile oluşturulur. CMSIS-v2 yalnızca kernel başlatma için kalır.
+Görevler CubeMX tarafından `osThreadNew` (CMSIS-v2) ile oluşturulur (C-6). Giriş fonksiyonları (`StartTelemetryTask`, `StartButtonTask`, `StartUartTxTask`) *As external* seçildiği için CubeMX yalnızca bildirimlerini üretir; gövdeleri bizim `app_*.c` dosyalarımızda. Her görev ilk satırında kendi tag'ini `vTaskSetApplicationTaskTag(NULL, tag)` ile ayarlar. Kuyruk, `main.c`'deki `USER CODE BEGIN RTOS_QUEUES` bölümünde **doğal FreeRTOS API'si** (`xQueueCreate`) ile oluşturulur; bu bölüm görevler oluşturulmadan önce çalışır.
+
+> 💡 **"As external" ne demek?** CubeMX görev fonksiyonunun gövdesini üretmez, yalnızca `extern` bildirimini yazar. Fonksiyonu biz yazmazsak derleme bağlama (link) aşamasında hata verir, yani görev gövdesinin unutulması imkânsızdır. "Default" seçilseydi CubeMX `main.c` içine boş bir gövde koyardı ve kodumuz CubeMX'in yönettiği dosyaya karışırdı.
 
 | Nesne | Öncelik | Stack (word) | Not |
 |---|---|---|---|
@@ -136,7 +139,9 @@ typedef struct {
 > 💡 **Kuyruk derinliği neden 16?** Kuyruğa yalnızca TEL ve BTN girer. 16 öğe × 68 B = 1088 B RAM. Bu bir **başlangıç değeri**; gerçek en yüksek doluluk her koşuda ölçülüp (QUE-05) SUM çerçevesinde raporlanır. Ölçüm küçük bir değer gösterirse ileride düşürülebilir.
 
 **Heap bütçesi (tahmini, SYS-04 ile doğrulanacak):**
-görev stack'leri (384+256+512+128 idle+256 timer) × 4 B ≈ 6,1 KB + TCB'ler ≈ 0,5 KB + kuyruk ≈ 1,2 KB → ~7,8 KB. `TOTAL_HEAP_SIZE = 16384` bunun üzerinde pay bırakır. Ölçüm kayıtları heap'te değil, statik RAM'de tutulur (§8).
+Görev stack'leri ve TCB'ler **statik** ayrılır (C-6, *Allocation = Static*): `main.c`'deki `…TaskBuffer[]` dizileri derleme zamanında RAM'e yerleşir, heap'ten alınmaz. Heap'ten yalnızca kuyruk (~1,2 KB) ve CMSIS/kernel nesneleri alınır. Idle ve timer görevlerinin belleği de `configSUPPORT_STATIC_ALLOCATION` sayesinde statiktir. `TOTAL_HEAP_SIZE = 16384` bu yüzden bol pay bırakır; gerçek kullanım MEM çerçevesinde ölçülür.
+
+> 💡 **Statik ayırmanın faydası:** Bellek yerleşimi derlemede belli olur, linker haritasında (`.map`) görünür. Çalışma anında "heap bitti, görev oluşturulamadı" diye bir hata olamaz.
 
 Karşıladığı: SYS-01/02/03/04, QUE-01/04.
 
@@ -490,7 +495,7 @@ Karşıladığı: UI-01…UI-10.
 Her adım ayrı bir commit ve kendi mini doğrulamasıyla tamamlanacak:
 
 1. **Repo düzeni:** `project/` → `firmware/`, `.gitignore`, iskelet klasörler.
-2. **CubeMX değişiklikleri** C-1…C-7 → derle; LED yanıp sönme testi.
+2. **CubeMX değişiklikleri** C-1…C-8 + boş görev gövdeleri (`app_tasks_stub.c`) → derle.
 3. **`app_ts` + `app_frame`** → TEL çerçevesini sabit periyotta gönder (DMA'sız bile olur); PC'de 64 B çerçeve görülür.
 4. **Kuyruk + UartTxTask (DMA + TC)** → TelemetryTask ile S1–S3.
 5. **ButtonTask + ISR + debounce** → BTN çerçeveleri.
@@ -506,7 +511,7 @@ Her adım ayrı bir commit ve kendi mini doğrulamasıyla tamamlanacak:
 
 | Gereksinim | Tasarım bölümü |
 |---|---|
-| SYS-01…05 | §3 (C-6, C-7), §5, §10 |
+| SYS-01…05 | §3 (C-6, C-7, C-8), §5, §10 |
 | TSK-01…04, TSK-08 | §6, §7.2 |
 | TSK-05, TSK-05a | §6, §7.1, §7.3 |
 | TSK-06, TSK-07 | §7.4 |
@@ -537,3 +542,6 @@ Her adım ayrı bir commit ve kendi mini doğrulamasıyla tamamlanacak:
 | 0.1 | 2026-09-25 | İlk taslak |
 | 1.0 | 2026-09-25 | Kursiyer onayı; DQ-1…3 kapandı; buton her durumda algılanır |
 | 1.1 | 2026-09-25 | VER çerçevesi ve `build_info.h` (MSG-09) |
+| 1.2 | 2026-09-26 | Uygulamadan geri bildirim: görevler CubeMX'te *As external* olarak tanımlanır (CubeMX son görevi sildirmiyor, C-6); `USE_NEWLIB_REENTRANT` (C-8) |
+| 1.3 | 2026-09-26 | Görevler statik ayrılır (*Allocation = Static*); heap bütçesi güncellendi |
+| 1.4 | 2026-09-26 | UartTxTask *As weak* (CubeMX ilk görev için *As external* sunmuyor) |
