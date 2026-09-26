@@ -27,6 +27,7 @@ from .serial_worker import SerialWorker, available_ports
 from .session import PERIOD_MS, RUNNING, Session
 
 MEAS_DIR = pathlib.Path(__file__).resolve().parents[2] / "measurements"   # hafta-01/measurements
+RAW_DIR = pathlib.Path(__file__).resolve().parents[2] / "docs" / "test-results" / "raw"
 PLOT_POINTS = 3000
 
 # Aralık renkleri (EventToRun, ButtonExec, QueueWait, UartTx)
@@ -49,6 +50,7 @@ class MainWindow(QMainWindow):
         self.tel_x = deque(maxlen=PLOT_POINTS)
         self.tel_y = deque(maxlen=PLOT_POINTS)
         self._dirty = False
+        self._dump_raw = None        # DUMP çerçevelerinin ham kopyası (D05 karşılaştırması için)
         self._build()
         self.refresh_ports()
         self._update_controls()
@@ -259,6 +261,10 @@ class MainWindow(QMainWindow):
     def on_frames(self, frames):
         s = self.session
         for fr in frames:
+            if fr.startswith(b"ACK,DUMP"):
+                self._dump_raw = []
+            if self._dump_raw is not None:
+                self._dump_raw.append(fr)
             kind, f = s.handle(fr)
             if kind == "TEL":
                 p = PERIOD_MS.get(f["scn"], 0) or 1
@@ -316,6 +322,12 @@ class MainWindow(QMainWindow):
             stamp = dt.datetime.fromtimestamp(path.stat().st_mtime).strftime("%Y%m%d_%H%M%S")
             path.rename(path.with_name(f"S{scn}_{stamp}.csv"))
         write_csv(path, d.recs, d.pres)
+        if self._dump_raw:                         # ham döküm: CSV'nin kaynağı (D05)
+            RAW_DIR.mkdir(parents=True, exist_ok=True)
+            raw = RAW_DIR / f"UI-DUMP-S{scn}-{dt.datetime.now():%Y-%m-%d_%H%M%S}.log"
+            raw.write_text("".join(f.decode("ascii", "replace").rstrip() + "\n" for f in self._dump_raw),
+                           encoding="ascii", errors="replace")
+            self._dump_raw = None
         miss = "" if len(d.recs) == d.expected else f"  ⚠ beklenen {d.expected} REC, gelen {len(d.recs)}"
         self.lbl_csv.setText(f"Ölçüm dosyası: {path}  ({len(d.recs)} olay){miss}")
         self.plot_results([row_for(r, d.pres.get(r["event_id"])) for r in d.recs])
