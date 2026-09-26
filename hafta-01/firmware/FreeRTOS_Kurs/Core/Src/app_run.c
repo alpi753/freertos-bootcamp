@@ -6,6 +6,7 @@
 #include "app_run.h"
 #include "app_config.h"
 #include "app_msg.h"
+#include "app_meas.h"
 
 const scn_cfg_t SCN_TABLE[SCN_COUNT] = {
     {   0,    0 },   /* S0  telemetri kapalı        */
@@ -43,6 +44,7 @@ void run_start(void)
 {
     taskENTER_CRITICAL();
     memset((void *)&g_cnt, 0, sizeof g_cnt);
+    meas_reset();                                  /* kayıtlar ve olay sayacı */
     g_run_id++;
     g_run_state = RUN_RUNNING;
     taskEXIT_CRITICAL();

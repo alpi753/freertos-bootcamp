@@ -9,6 +9,10 @@ Kullanım (Windows örneği):
     py interface/tools/hil_check.py --port COM5 --tc T03 --secs 10     # hızlı deneme
     py interface/tools/hil_check.py --port COM5 --tc T07               # etkileşimli: butona sen basarsın
     py interface/tools/hil_check.py --port COM5 --tc T08
+    py interface/tools/hil_check.py --port COM5 --tc T12               # etkileşimli: 5 basış
+    py interface/tools/hil_check.py --port COM5 --tc T13               # TEST_FORCE_QFULL=1 derlemesi
+    py interface/tools/hil_check.py --port COM5 --tc T15               # TEST_MEAS_CAP=1 derlemesi
+    py interface/tools/hil_check.py --port COM5 --tc T16               # TEST_LONG_FRAME=1 derlemesi (Release)
 
 Her koşu ham UART kaydını docs/test-results/raw/<TC>-<tarih>.log dosyasına yazar.
 Satır biçimi:  <PC ms>\t<çerçeve>   (PC zamanı yalnızca hata ayıklama içindir;
@@ -243,10 +247,153 @@ def tc_t08(link, presses=20):
                  f"reddedilen sicrama (bounce_rej) {s['bounce_rej']}")
 
 
+# ---- Döküm (DUMP) ve adım 6 testleri ----------------------------------------
+
+UART_MIN_US = 5555   # 64 bayt × 10 bit / 115200 bit/s = 5,556 ms: t₄−t₃ bundan kısa OLAMAZ
+
+
+def full_dump(link):
+    """DUMP gönderir; {'ver','recs','sum','frames'} döndürür."""
+    i = len(link.frames)
+    link.send("CMD,DUMP")
+    link.wait_for("END,DUMP", timeout=10)
+    frames = [f for _, f in link.frames[i:] if not f.startswith(b">>")]
+    recs, s, ver = [], None, None
+    for f in frames:
+        x = fields(f)
+        if x[0] == "REC":
+            recs.append(dict(zip(["id", "scn", "t0", "d1", "d2", "d3", "d4", "lost"],
+                                 [int(x[1]), x[2]] + [int(v) for v in x[3:]])))
+        elif x[0] == "SUM":
+            s = dict(zip(["scn", "events", "tel_sent", "tel_dropped", "btn_dropped", "q_hw",
+                          "rec_overflow", "bounce_rej", "frame_err"], [x[1]] + [int(v) for v in x[2:]]))
+        elif x[0] == "VER":
+            ver = x
+    return {"ver": ver, "recs": recs, "sum": s, "frames": frames}
+
+
+def require_flags(link, want):
+    """Doğru test derlemesi mi yüklü? Kısa bir S0 koşusu + DUMP ile VER'deki bayrak maskesine bakar."""
+    start(link, 0)
+    stop(link)
+    ver = full_dump(link)["ver"]
+    flags = int(ver[3], 16) if ver else -1
+    ok = flags == want
+    check("test derlemesi", ok, f"{','.join(ver) if ver else 'VER yok'} → bayraklar 0x{flags:02X}, "
+          f"beklenen 0x{want:02X}" + ("" if ok else "  → dogru derlemeyi yukle"))
+    return ok
+
+
+def start(link, scn):
+    link.send("CMD,STOP"); link.drain(0.3)
+    link.send(f"CMD,SCN,{scn}"); link.wait_for(f"ACK,SCN,S{scn}")
+    link.send("CMD,START"); t, _ = link.wait_for(f"ACK,START,S{scn}")
+    return t
+
+
+def stop(link):
+    link.send("CMD,STOP"); t, _ = link.wait_for("ACK,STOP")
+    return t
+
+
+def tc_t12(link, presses=5):
+    """T12: döküm bütünlüğü — REC sayısı, sıra, zincir, tekrar edilebilirlik (MSG-05/06, TIM-02)."""
+    if not require_flags(link, 0):
+        return False
+    start(link, 2)
+    say(f"S2 kosusu basladi. Butona {presses} kez bas (aralarinda 1-3 sn).")
+    collect_btn(link, presses)
+    stop(link)
+    d1 = full_dump(link)
+    d2 = full_dump(link)
+    recs, s = d1["recs"], d1["sum"]
+    ok = True
+    ok &= check("T12 kayit sayisi", len(recs) == presses == s["events"],
+                f"REC {len(recs)}, SUM.events {s['events']}, basis {presses}")
+    ok &= check("T12 olay sirasi", [r["id"] for r in recs] == list(range(1, presses + 1)),
+                f"{[r['id'] for r in recs]}")
+    ok &= check("T12 zincir tam", all(r["lost"] == 0 for r in recs),
+                f"lost alanlari {[r['lost'] for r in recs]}")
+    ok &= check("T12 t0 artan", all(recs[i]["t0"] < recs[i + 1]["t0"] for i in range(len(recs) - 1)),
+                "olaylarin t0'lari zaman sirasinda")
+    ok &= check("T12 t4-t3 fiziksel alt sinir", all(r["d4"] >= UART_MIN_US for r in recs),
+                f"d_UartTx {[r['d4'] for r in recs]} us (>= {UART_MIN_US}: 64 bayt hatta en az bu kadar kalir)")
+    same = [f for f in d1["frames"] if f[:3] in (b"REC", b"SUM")] == \
+           [f for f in d2["frames"] if f[:3] in (b"REC", b"SUM")]
+    ok &= check("T12 tekrar DUMP ayni", same, "iki dokumdeki REC+SUM cerceveleri bayt bayt ayni")
+    for r in recs:
+        print(f"    olay {r['id']}: EventToRun {r['d1']} | ButtonExec {r['d2']} | "
+              f"QueueWait {r['d3']} | UartTx {r['d4']} us")
+    return ok
+
+
+def tc_t13(link, secs=20.0, presses=5):
+    """T13: kuyruk dolu (TEST_FORCE_QFULL) — TEL düşer ama TelemetryTask bloklanmaz; BTN kaybı kayda geçer."""
+    if not require_flags(link, 0x01):
+        return False
+    t0 = start(link, 3)
+    say(f"S3 kosusu ({secs:.0f} s). Bu surede butona {presses} kez bas.")
+    got = collect_btn(link, presses, timeout=secs, settle=0)
+    remain = secs - (link.ms() - t0) / 1000
+    if remain > 0:
+        link.drain(remain)
+    t1 = stop(link)
+    d = full_dump(link)
+    s, recs = d["sum"], d["recs"]
+    tel = [int(fields(f)[1]) for _, f in link.frames if f.startswith(b"TEL,")]
+    gen = s["tel_sent"] + s["tel_dropped"]
+    expected = (t1 - t0) / PERIOD_MS[3]
+    n_lost = sum(1 for r in recs if r["lost"] == 1)
+    ok = True
+    ok &= check("T13 TEL dusuruldu", s["tel_dropped"] > 0, f"tel_dropped {s['tel_dropped']}, tel_sent {s['tel_sent']}")
+    ok &= check("T13 TelemetryTask bloklanmadi", abs(gen - expected) <= max(1.0, 0.01 * expected),
+                f"uretilen {gen}, beklenen {expected:.1f} (sure {t1 - t0} ms)")
+    ok &= check("T13 seq bosluklu", len(tel) > 1 and tel != list(range(tel[0], tel[0] + len(tel))),
+                f"PC'ye gelen TEL {len(tel)}, son seq {tel[-1] if tel else '-'}")
+    ok &= check("T13 BTN kaybi kayitta", s["btn_dropped"] == n_lost,
+                f"btn_dropped {s['btn_dropped']} = lost=1 REC {n_lost}; BTN gelen {len(got)}")
+    ok &= check("T13 kayip zincir t2'de biter",
+                all(r["d3"] == 0 and r["d4"] == 0 for r in recs if r["lost"] == 1),
+                "lost=1 kayitlarda t3-t2 ve t4-t3 = 0")
+    return ok
+
+
+def tc_t15(link, presses=6):
+    """T15: kayıt kapasitesi (TEST_MEAS_CAP → 4)."""
+    if not require_flags(link, 0x02):
+        return False
+    start(link, 0)
+    say(f"S0 kosusu. Butona {presses} kez bas.")
+    got = collect_btn(link, presses)
+    stop(link)
+    d = full_dump(link)
+    s, recs = d["sum"], d["recs"]
+    return check("T15 kapasite", len(recs) == 4 and s["rec_overflow"] == presses - 4
+                 and s["events"] == presses and [g[1] for g in got] == [str(i) for i in range(1, presses + 1)],
+                 f"REC {len(recs)} (4), rec_overflow {s['rec_overflow']} ({presses - 4}), "
+                 f"events {s['events']}, gelen BTN no'lari {[g[1] for g in got]}")
+
+
+def tc_t16(link):
+    """T16: 63'ü aşan çerçeve kesilmez, gönderilmez, sayılır (Release; MSG-02)."""
+    if not require_flags(link, 0x04):
+        return False
+    start(link, 0)
+    link.drain(0.5)
+    stop(link)
+    d = full_dump(link)
+    rx = [f for _, f in link.frames if not f.startswith(b">>")]
+    long_seen = any(f.startswith(b"LONG") for f in rx)
+    bad = sum(1 for f in rx if len(f) != FRAME_LEN)
+    return check("T16 uzun cerceve", d["sum"]["frame_err"] >= 1 and not long_seen and bad == 0,
+                 f"frame_err {d['sum']['frame_err']} (>=1), LONG cercevesi gorundu mu: {long_seen}, "
+                 f"64 bayt olmayan cerceve {bad}")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--port", help="ör. COM5; boşsa portlar listelenir")
-    ap.add_argument("--tc", default="adim4", choices=["adim4", "T02", "T03", "T11", "T14", "T07", "T08"])
+    ap.add_argument("--tc", default="adim4", choices=["adim4", "T02", "T03", "T11", "T14", "T07", "T08", "T12", "T13", "T15", "T16"])
     ap.add_argument("--secs", type=float, default=60.0, help="koşu süresi (test planı: 60 s)")
     a = ap.parse_args()
 
@@ -264,6 +411,9 @@ def main():
             results.append(tc_t07(link)); scns = []
         elif a.tc == "T08":
             results.append(tc_t08(link)); scns = []
+        elif a.tc in ("T12", "T13", "T15", "T16"):
+            fn = {"T12": tc_t12, "T13": tc_t13, "T15": tc_t15, "T16": tc_t16}[a.tc]
+            results.append(fn(link)); scns = []
         for scn in scns:
             print(f"-- S{scn} kosusu ({a.secs:.0f} s) --")
             r = run_once(link, scn, a.secs)

@@ -3,7 +3,7 @@
 | Alan | Değer |
 |---|---|
 | Doküman | `hafta-01/docs/specs/03-test-plan.md` |
-| Sürüm | 1.2 (ONAYLANDI — 2026-09-26) |
+| Sürüm | 1.3 (ONAYLANDI — 2026-09-26) |
 | Tarih | 2026-09-25 |
 | Girdi | `01-requirements.md` v1.2, `02-design.md` v1.1 |
 | Çıktı | `docs/test-results.md` (test sonuçları), `measurements/`, `analysis/` (kanıtlar) |
@@ -139,7 +139,7 @@ Otomatik olanlar `hil_check.py --tc <ID>` ile çalışır. Betik komutları gön
 | **T09** ISR süresi | EXTI kesmesinin ilk ve son satırında DWT okuyan ölçüm (`APP_EXTI_TIMING_*`, her derlemede açık). **Release** derleme (-Os, hata ayıklama bilgisi -g3 ile); en az 20 basış; *Live Expressions*'da `g_btn_diag.isr_max_ns`. Debug'da da ölçülür ama yalnızca bilgi amaçlıdır | Release'te en büyük ISR süresi ≤ 5 µs (400 çevrim) | ISR-04 |
 | **T10** Komut protokolü | Otomatik dizi: `SCN,3` → `START` → `SCN,2` → `STOP` → `STOP` → `DUMP` → `SCN,9` → `XYZ` | Sırasıyla ACK, ACK, **NAK,BUSY**, ACK, **NAK,STATE**, ACK…END, **NAK,ARG**, **NAK,CMD** | MSG-07, MSG-08 |
 | **T11** Koşu sırasında sessizlik | T02'nin kaydı | START ile STOP arasında yalnızca TEL/BTN/ACK tipleri var | TIM-05 |
-| **T12** Döküm bütünlüğü | (Op) S2 koşusunda 5 basış → STOP → DUMP → tekrar DUMP | 5 REC + 5 PRE + SUM + CAL + MEM + RTS + END. `SUM.events = 5`. Her olayda t₀ ≤ t₁ ≤ t₂ ≤ t₃ ≤ t₄. İki döküm bayt bayt aynı | MSG-05, MSG-06, TIM-02 |
+| **T12** Döküm bütünlüğü | (Op) S2 koşusunda 5 basış → STOP → DUMP → tekrar DUMP | 5 REC + 5 PRE + SUM + CAL + MEM + RTS + END. `SUM.events = 5`. Her olayda t₀ ≤ t₁ ≤ t₂ ≤ t₃ ≤ t₄. İki döküm bayt bayt aynı. Her olayda `t₄−t₃ ≥ 5555 µs` (64 bayt 115200 baud'da hatta en az 5,56 ms kalır; daha kısa bir değer t₃/t₄'ün yanlış çerçeveye bağlandığını gösterir — ölçüm aracının fiziksel tutarlılık kontrolü) | MSG-05, MSG-06, TIM-02 |
 | **T14** Kuyruk doluluğu | T03'ün S3 koşusu | SUM'da `q_hw` raporlanmış ve 1 ≤ `q_hw` ≤ `TXQ_DEPTH` | QUE-04, QUE-05 |
 
 ### 6.2 Zaman ölçüm aracının doğrulanması
@@ -342,3 +342,4 @@ Tasarım §12'deki her adım, aşağıdaki testler geçmeden tamamlanmış sayı
 | 1.0 | 2026-09-25 | Kursiyer onayı; TQ-1 kabul edildi (VER, MSG-09) |
 | 1.1 | 2026-09-26 | §10: U02 ve U05 adım 4'e alındı (komut kanalı ve ADC okuma öne çekildi) |
 | 1.2 | 2026-09-26 | T09 Release derlemede değerlendirilir; TQ-2 düzeltildi |
+| 1.3 | 2026-09-26 | T12'ye t₄−t₃ fiziksel alt sınır kontrolü eklendi |

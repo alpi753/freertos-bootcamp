@@ -1,6 +1,6 @@
-# Kartsız birim testleri — 2026-09-26 09:28 UTC
+# Kartsız birim testleri — 2026-09-26 12:18 UTC
 # gcc: gcc (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0
-# komut: make -C firmware/tests_host clean test
+# komut: make -C firmware/tests_host test
 
 == Kartsiz birim testleri ==
 [GECTI] U03    debounce karari (sinir + tasma)
@@ -10,4 +10,15 @@
 [GECTI] U02    sicaklik donusumu
 [GECTI] U05    komut ayristirici
 [GECTI] U05    komut durum tablosu
-== 79 kontrol, 0 hata ==
+[GECTI] U08    fw: t0..t4 zinciri, kayip, eksik
+[GECTI] U08    fw: kosu disi, tasma, doyurma
+[GECTI] U08    fw: kayit kapasitesi (64)
+== 99 kontrol, 0 hata ==
+
+# PC tarafı (pytest) — python 3.10.12
+# komut: python -m pytest -v interface/tests
+interface/tests/test_csv.py::test_parse_types PASSED                     [ 25%]
+interface/tests/test_csv.py::test_parse_bad PASSED                       [ 50%]
+interface/tests/test_csv.py::test_rec_absolute_wraps PASSED              [ 75%]
+interface/tests/test_csv.py::test_csv_columns_and_lost PASSED            [100%]
+============================== 4 passed in 0.15s ===============================

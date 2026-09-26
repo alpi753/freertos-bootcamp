@@ -20,6 +20,8 @@
 #include "app_run.h"
 #include "app_cmd.h"
 #include "app_selftest.h"
+#include "app_meas.h"
+#include "app_ts.h"
 
 #if defined(__has_include)
 #  if __has_include("build_info.h")
@@ -38,6 +40,7 @@
 extern UART_HandleTypeDef huart2;
 
 static TaskHandle_t s_self;
+static volatile uint16_t s_tx_btn;        /* gönderilmekte olan BTN'in olay no'su (0 = BTN değil) */
 static volatile uint32_t s_tx_errors;     /* DMA başlatılamadı / TC zaman aşımı */
 
 /* ---- RX: tek üretici (ISR) / tek tüketici (görev) ring buffer ---------- */
@@ -68,19 +71,26 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *h)
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *h)
 {
     /* HAL bunu DMA bittikten SONRA, son baytın stop biti hattan çıkınca (TC) çağırır. */
+    const uint32_t t4 = ts_now();            /* t₄: TC işlenirken, ilk iş */
     if (h->Instance != USART2) return;
+    if (s_tx_btn) { meas_stamp(s_tx_btn, 4, t4); s_tx_btn = 0; }
     BaseType_t hpw = pdFALSE;
     vTaskNotifyGiveFromISR(s_self, &hpw);
     portYIELD_FROM_ISR(hpw);
 }
 
-/** 64 baytlık çerçeveyi gönderir ve hattan tamamen çıkana kadar BLOKLANARAK bekler. */
-static void uart_send_frame(const char *frame)
+/** 64 baytlık çerçeveyi gönderir ve hattan tamamen çıkana kadar BLOKLANARAK bekler.
+ *  btn_id ≠ 0 ise bu bir koşu BTN'idir: t₃ burada, t₄ TC kesmesinde alınır. */
+static void uart_send_frame(const char *frame, uint16_t btn_id)
 {
+    s_tx_btn = btn_id;
+    const uint32_t t3 = ts_now();            /* t₃: UART başlatma çağrısından hemen önce */
     if (HAL_UART_Transmit_DMA(&huart2, (uint8_t *)frame, FRAME_LEN) != HAL_OK) {
+        s_tx_btn = 0;
         s_tx_errors++;
         return;
     }
+    meas_stamp(btn_id, 3, t3);
     if (ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(UART_TX_TIMEOUT_MS)) == 0u) {
         s_tx_errors++;
     }
@@ -95,7 +105,7 @@ static void send_ctrl(const char *fmt, ...)
     va_start(ap, fmt);
     bool ok = frame_vbuild(f, fmt, ap);
     va_end(ap);
-    if (ok) uart_send_frame(f);
+    if (ok) uart_send_frame(f, 0);
 }
 
 static void send_ver(void)
@@ -106,9 +116,19 @@ static void send_ver(void)
 static void send_sum(void)
 {
     run_counters_t c = g_cnt;                  /* anlık kopya */
-    send_ctrl(FMT_SUM, (unsigned)g_run_scn, (unsigned)c.events, c.tel_sent, c.tel_dropped,
-              (unsigned)c.btn_dropped, (unsigned)c.q_hw, (unsigned)c.rec_overflow,
+    send_ctrl(FMT_SUM, (unsigned)g_run_scn, (unsigned)meas_events(), c.tel_sent, c.tel_dropped,
+              (unsigned)c.btn_dropped, (unsigned)c.q_hw, (unsigned)meas_overflow(),
               (unsigned)c.bounce_rej, (unsigned)(g_frame_err & 0xFFFFu));
+}
+
+/** Her kayıt için bir REC çerçevesi (MSG-05; tasarım §9). */
+static void send_recs(void)
+{
+    meas_rec_view_t v;
+    for (uint16_t i = 0; meas_view(i, &v); i++) {
+        send_ctrl(FMT_REC, (unsigned)v.event_id, (unsigned)v.scn, v.t0,
+                  v.d[0], v.d[1], v.d[2], v.d[3], (unsigned)v.lost);
+    }
 }
 
 /** Kuyrukta kalan çerçeveleri gönderir (STOP'ta, ACK'ten önce). */
@@ -116,7 +136,7 @@ static void drain_queue(void)
 {
     tx_item_t it;
     while (xQueueReceive(g_txq, &it, 0) == pdPASS) {
-        uart_send_frame(it.frame);
+        uart_send_frame(it.frame, it.type == MSG_BTN ? it.event_id : 0u);
     }
 }
 
@@ -138,6 +158,10 @@ static void cmd_execute(const char *line)
     case CMD_START:
         run_start();
         send_ctrl("ACK,START,S%u", (unsigned)g_run_scn);
+#if TEST_LONG_FRAME
+        /* TC-T16: 70 karakterlik içerik. Kesilip gönderilmemeli; frame_err artmalı (MSG-02). */
+        send_ctrl("%s", "LONG,0123456789012345678901234567890123456789012345678901234567890123");
+#endif
         break;
     case CMD_STOP:
         run_stop();
@@ -145,9 +169,9 @@ static void cmd_execute(const char *line)
         send_ctrl("ACK,STOP");
         break;
     case CMD_DUMP:
-        send_ctrl("ACK,DUMP,%u", 0u);          /* kayıt sayısı: adım 6'da */
+        send_ctrl("ACK,DUMP,%u", (unsigned)meas_count());
         send_ver();
-        /* REC/PRE (adım 6-7), CAL/MEM/RTS (adım 8) buraya eklenecek */
+        send_recs();                           /* PRE (adım 7), CAL/MEM/RTS (adım 8) sonra */
         send_sum();
         send_ctrl("END,DUMP");
         break;
@@ -195,7 +219,10 @@ void StartUartTxTask(void *argument)
         cmd_poll();
         tx_item_t it;
         if (xQueueReceive(g_txq, &it, pdMS_TO_TICKS(UART_RX_POLL_MS)) == pdPASS) {
-            uart_send_frame(it.frame);         /* FIFO: sırayla, biri bitmeden diğeri yok */
+            uart_send_frame(it.frame, it.type == MSG_BTN ? it.event_id : 0u);   /* FIFO: sırayla */
+#if TEST_FORCE_QFULL
+            vTaskDelay(pdMS_TO_TICKS(QFULL_TX_DELAY_MS));   /* TC-T13: kuyruğu bilerek doldur */
+#endif
         }
     }
 }

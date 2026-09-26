@@ -18,8 +18,6 @@ typedef struct {
     uint32_t tel_sent;       /* kuyruğa yazılabilen TEL */
     uint32_t tel_dropped;    /* kuyruk dolu olduğu için düşürülen TEL (QUE-02) */
     uint16_t btn_dropped;    /* QUE-03 */
-    uint16_t events;         /* koşuda kabul edilen buton olayı */
-    uint16_t rec_overflow;   /* TIM-03 (adım 6) */
     uint16_t bounce_rej;     /* ISR-03 (adım 5) */
     uint8_t  q_hw;           /* kuyruk en yüksek doluluk (QUE-05) */
 } run_counters_t;

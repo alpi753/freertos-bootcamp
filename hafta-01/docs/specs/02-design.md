@@ -3,7 +3,7 @@
 | Alan | Değer |
 |---|---|
 | Doküman | `hafta-01/docs/specs/02-design.md` |
-| Sürüm | 1.6 (ONAYLANDI — 2026-09-26) |
+| Sürüm | 1.7 (ONAYLANDI — 2026-09-26) |
 | Tarih | 2026-09-25 |
 | Girdi | `01-requirements.md` v1.2 |
 | Sonraki doküman | `03-test-plan.md` |
@@ -343,6 +343,12 @@ static meas_rec_t s_rec[MEAS_CAP];                           // MEAS_CAP = 64 �
 
 Kapasite dolarsa `rec_overflow++` (TIM-03).
 
+**Uygulama notları (adım 6):**
+- Modül saf C'dir (`app_meas.c`, HAL/FreeRTOS yok) ve PC'de test edilir. Olay numarası kayıt dizisinin indeksidir (`id − 1`); her START'ta sıfırlanır.
+- Her kayıtta bir `have` bit maskesi hangi damgaların alındığını tutar. Bir fark (ör. t₃−t₂) yalnızca iki ucu da alındıysa yazılır; yoksa 0 gönderilir.
+- REC'teki `lost` alanı: **0** = t₀…t₄ tam, **1** = `xQueueSend` başarısız, zincir t₂'de bitti (TIM-02a), **2** = beklenmeyen eksik damga (ör. TC zaman aşımı). Bütünlük ölçütü V4 yalnızca `lost = 0` olaylara uygulanır.
+- t₃: `uart_send_frame` içinde, `HAL_UART_Transmit_DMA` çağrısından hemen önce alınır; olay numarası `s_tx_btn` ile TC kesmesine aktarılır. t₄: `HAL_UART_TxCpltCallback`'in ilk satırında alınır.
+
 ### 8.2 Görev değiştirme kancaları
 
 `FreeRTOSConfig.h` içindeki `USER CODE` bölümüne:
@@ -413,7 +419,7 @@ bool frame_build(char out[64], const char *fmt, ...) {
 
 `git_hash` derleme öncesi adımda üretilen `build_info.h` dosyasından gelir. STM32CubeIDE *Properties → C/C++ Build → Settings → Build Steps → Pre-build* komutu `git rev-parse --short HEAD` çıktısını `#define BUILD_GIT_HASH "..."` olarak yazar; çalışma dizininde commit edilmemiş değişiklik varsa hash'in sonuna `+` eklenir. `build_info.h` repoya girmez (`.gitignore`). Derleme türü `DEBUG` makrosundan, `test_flags` ise §3'teki `TEST_*` bayraklarının bit maskesinden (bit0 QFULL, bit1 MEAS_CAP, bit2 LONG_FRAME, bit3 STACK_OVF) hesaplanır.
 
-**DUMP ile giden çerçeveler** (sıra: `ACK,DUMP` → VER → REC/PRE çiftleri → SUM → CAL → MEM → RTS × görev sayısı → `END,DUMP`):
+**DUMP ile giden çerçeveler** (sıra: `ACK,DUMP,<kayıt sayısı>` → VER → REC/PRE çiftleri → SUM → CAL → MEM → RTS × görev sayısı → `END,DUMP`):
 
 | Tip | Biçim | En uzun hâli |
 |---|---|---|
@@ -549,3 +555,4 @@ Her adım ayrı bir commit ve kendi mini doğrulamasıyla tamamlanacak:
 | 1.4 | 2026-09-26 | UartTxTask *As weak* (CubeMX ilk görev için *As external* sunmuyor) |
 | 1.5 | 2026-09-26 | Uygulama adımı 3: biçimler `app_frame.h`'de, REC fark doyurma sınırı, SUM alan genişlikleri (§9) |
 | 1.6 | 2026-09-26 | §12: komut kanalı ve ADC okuma adım 4'e alındı |
+| 1.7 | 2026-09-26 | Uygulama adımı 6: §8.1 kayıt uygulama notları (lost kodları 0/1/2, have maskesi, t₃/t₄ yerleri) |

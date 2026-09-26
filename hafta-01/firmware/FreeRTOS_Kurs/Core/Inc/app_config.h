@@ -8,7 +8,7 @@
 #include <stdint.h>
 
 /* ---- Kuyruk ve zaman aşımları (tasarım §5, §7) ------------------------- */
-#define TXQ_DEPTH              16u   /* QUE-04: derleme zamanı sabiti */
+/* TXQ_DEPTH aşağıda, test bayraklarından sonra tanımlıdır. */
 #define BTN_SEND_TIMEOUT_MS    10u   /* QUE-03 */
 #define UART_TX_TIMEOUT_MS     20u   /* bir çerçeve hatta ~5,6 ms; 20 ms = güvenli üst sınır */
 #define UART_RX_POLL_MS        10u   /* kuyruk boşken komutların en geç işlenme süresi */
@@ -37,6 +37,14 @@ extern const scn_cfg_t SCN_TABLE[SCN_COUNT];
 #ifndef TEST_STACK_OVF
 #define TEST_STACK_OVF     0
 #endif
+/* QUE-04: kuyruk derinliği derleme zamanı sabiti. TC-T13'te bilerek küçültülür. */
+#if TEST_FORCE_QFULL
+#define TXQ_DEPTH   2u
+#define QFULL_TX_DELAY_MS  50u   /* UartTxTask her çerçeveden sonra bekler → kuyruk dolar */
+#else
+#define TXQ_DEPTH  16u
+#endif
+
 /* VER çerçevesindeki bit maskesi (tasarım §9) */
 #define APP_TEST_FLAGS  ((TEST_FORCE_QFULL ? 1u : 0u) | (TEST_MEAS_CAP ? 2u : 0u) | \
                          (TEST_LONG_FRAME  ? 4u : 0u) | (TEST_STACK_OVF ? 8u : 0u))
