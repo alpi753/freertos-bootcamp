@@ -86,7 +86,7 @@ typedef enum {
   osPriorityLow1          =  8+1,       ///< Priority: low + 1
   osPriorityLow2          =  8+2,       ///< Priority: low + 2
   osPriorityLow3          =  8+3,       ///< Priority: low + 3
-  osPriorityLow4          =  8+4,       ///< Priority: low + 4
+  osPriorityLow4           =  8+4,       ///< Priority: low + 4
   osPriorityLow5          =  8+5,       ///< Priority: low + 5
   osPriorityLow6          =  8+6,       ///< Priority: low + 6
   osPriorityLow7          =  8+7,       ///< Priority: low + 7
