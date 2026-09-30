@@ -18,13 +18,13 @@ import pyqtgraph as pg
 import serial
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
-    QComboBox, QGridLayout, QGroupBox, QHBoxLayout, QLabel, QMainWindow,
+    QComboBox, QDoubleSpinBox, QGridLayout, QGroupBox, QHBoxLayout, QLabel, QMainWindow,
     QPushButton, QSplitter, QVBoxLayout, QWidget,
 )
 
 from .csv_writer import row_for, write_csv
 from .serial_worker import SerialWorker, available_ports
-from .session import PERIOD_MS, RUNNING, Session
+from .session import PERIOD_MS, RUNNING, Session, deadline_summary
 
 MEAS_DIR = pathlib.Path(__file__).resolve().parents[2] / "measurements"   # hafta-01/measurements
 RAW_DIR = MEAS_DIR / "raw"                 # koşu ham kayıtları (test planı §8.1)
@@ -52,6 +52,7 @@ class MainWindow(QMainWindow):
         self._dirty = False
         self._run_raw = None         # koşunun ham kaydı: ACK,START → END,DUMP (analyze.py --check okur)
         self._bad0 = 0               # START anındaki bozuk çerçeve sayacı
+        self._last_rows = []
         self._build()
         self.refresh_ports()
         self._update_controls()
@@ -84,6 +85,14 @@ class MainWindow(QMainWindow):
         bar.addSpacing(24)
         for w in (QLabel("Senaryo"), self.scn_box, self.btn_start, self.btn_stop, self.btn_dump):
             bar.addWidget(w)
+        bar.addSpacing(24)
+        # UI-11: d_Total için deadline (yalnızca görselleştirme)
+        self.deadline_box = QDoubleSpinBox(minimum=1.0, maximum=100.0, singleStep=1.0, decimals=1,
+                                           value=20.0, suffix=" ms")
+        self.deadline_box.setToolTip("Sonuç grafiğindeki d_Total deadline çizgisi (ölçüt değil, gözlem)")
+        self.deadline_box.valueChanged.connect(lambda _: self.plot_results(self._last_rows))
+        bar.addWidget(QLabel("Deadline"))
+        bar.addWidget(self.deadline_box)
         bar.addStretch(1)
         bar.addWidget(self.lbl_conn)
         root.addLayout(bar)
@@ -177,9 +186,12 @@ class MainWindow(QMainWindow):
         self.exec_plot.addLegend(offset=(-10, 5))
         plots.addWidget(self.res_plot, 3)
         plots.addWidget(self.exec_plot, 2)
+        self.lbl_deadline = QLabel("")
+        self.lbl_deadline.setStyleSheet("font-weight:600")
         self.lbl_csv = QLabel("Ölçüm dosyası: —")
         self.lbl_csv.setTextInteractionFlags(Qt.TextSelectableByMouse)
         resl.addLayout(plots, 1)
+        resl.addWidget(self.lbl_deadline)
         resl.addWidget(self.lbl_csv)
         split.addWidget(res)
         split.setSizes([460, 360])
@@ -343,7 +355,10 @@ class MainWindow(QMainWindow):
         return self.session.bad_frames + (self.worker.bad if self.worker else 0)
 
     def plot_results(self, rows):
-        """UI-08: olay başına yığılmış çubuk + exec/preempt ayrımı; kayıp olaylar kırmızı."""
+        """UI-08: olay başına yığılmış çubuk + exec/preempt ayrımı; kayıp olaylar kırmızı.
+        UI-11: d_Total deadline çizgisi; aşan olaylar kırmızı çerçeveli."""
+        self._last_rows = rows
+        self.lbl_deadline.setText("")
         for pw in (self.res_plot, self.exec_plot):
             pw.clear()
             if pw.plotItem.legend:
@@ -361,6 +376,26 @@ class MainWindow(QMainWindow):
             self.res_plot.plot([e for e, _ in lost], [b + 0.3 for _, b in lost], pen=None,
                                symbol="x", symbolSize=14, symbolPen=pg.mkPen("#E45756", width=3),
                                name="kayıp (lost≠0)")
+
+        # UI-11: deadline çizgisi ve aşan olaylar
+        dl_ms = self.deadline_box.value()
+        ds = deadline_summary(rows, dl_ms * 1000)
+        self.res_plot.addItem(pg.InfiniteLine(
+            pos=dl_ms, angle=0, pen=pg.mkPen("#E45756", width=2, style=Qt.DashLine),
+            label=f"deadline {dl_ms:g} ms", labelOpts={"position": 0.02, "color": "#E45756", "fill": (255, 255, 255, 220),
+                                             "anchors": [(0, 1), (0, 1)]}))
+        over = [r for r in rows if r["event_id"] in set(ds["exceeded"])]
+        if over:
+            self.res_plot.addItem(pg.BarGraphItem(
+                x=[r["event_id"] for r in over], y0=[0] * len(over), height=[r["d_Total_us"] / 1000 for r in over],
+                width=0.7, brush=None, pen=pg.mkPen("#E45756", width=3), name=f"> {dl_ms:g} ms"))
+        top = max(base + [dl_ms])
+        self.res_plot.setYRange(0, top * 1.12, padding=0)
+        mx = f"{ds['max_us'] / 1000:.2f} ms" if ds["max_us"] is not None else "—"
+        text = (f"Deadline {dl_ms:g} ms: {len(ds['exceeded'])}/{ds['n_valid']} olay aştı · en büyük d_Total {mx}"
+                + (f" · {ds['n_lost']} kayıp olay (d_Total yok) sayılmadı" if ds["n_lost"] else ""))
+        self.lbl_deadline.setText(text)
+        self.lbl_deadline.setStyleSheet("font-weight:600" + ("; color:#E45756" if ds["exceeded"] else ""))
 
         have_pre = [r for r in rows if r["bt_exec_us"] != ""]
         if have_pre:

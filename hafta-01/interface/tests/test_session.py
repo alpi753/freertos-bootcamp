@@ -4,7 +4,7 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 from uart_monitor.protocol import FrameSplitter, parse              # noqa: E402
-from uart_monitor.session import Session, RUNNING, STOPPED, UNKNOWN  # noqa: E402
+from uart_monitor.session import Session, RUNNING, STOPPED, UNKNOWN, deadline_summary  # noqa: E402
 
 
 def fr(text: str) -> bytes:
@@ -148,3 +148,17 @@ def test_dump_assembly():
     assert s.dump is None and d.complete and d.expected == 2
     assert [r["event_id"] for r in d.recs] == [1, 2] and set(d.pres) == {1, 2}
     assert d.sum["btn_dropped"] == 1 and d.mem["hw_btn"] == 88 and len(d.rts) == 2
+
+
+# ---- UI-11: deadline ----------------------------------------------------------
+
+def test_deadline_summary():
+    rows = [{"event_id": 1, "lost": 0, "d_Total_us": 19999},
+            {"event_id": 2, "lost": 0, "d_Total_us": 20000},     # eşit: aşmadı
+            {"event_id": 3, "lost": 0, "d_Total_us": 20001},
+            {"event_id": 4, "lost": 1, "d_Total_us": ""},        # kayıp: sayılmaz
+            {"event_id": 5, "lost": 0, "d_Total_us": 31000}]
+    d = deadline_summary(rows, 20000)
+    assert d == {"exceeded": [3, 5], "n_valid": 4, "n_lost": 1, "max_us": 31000}
+    assert deadline_summary(rows, 5000)["exceeded"] == [1, 2, 3, 5]
+    assert deadline_summary([], 20000) == {"exceeded": [], "n_valid": 0, "n_lost": 0, "max_us": None}

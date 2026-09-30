@@ -3,7 +3,7 @@
 | Alan | Değer |
 |---|---|
 | Doküman | `hafta-01/docs/specs/03-test-plan.md` |
-| Sürüm | 1.5 (ONAYLANDI — 2026-09-26) |
+| Sürüm | 1.6 (ONAYLANDI — 2026-09-30) |
 | Tarih | 2026-09-25 |
 | Girdi | `01-requirements.md` v1.2, `02-design.md` v1.1 |
 | Çıktı | `docs/test-results.md` (test sonuçları), `measurements/`, `analysis/` (kanıtlar) |
@@ -191,6 +191,7 @@ Her gösterim için kısa bir ekran kaydı ya da görüntü alınır: `docs/test
 | **D04** Düğme kilitleri | Koşu sırasında düğmeleri dene | Yalnızca "Durdur" etkin | UI-06 |
 | **D05** CSV kaydı | T12'deki döküm | `S2.csv` oluşur; satırlar ham logdaki REC/PRE ile birebir aynı (betikle karşılaştırılır) | UI-07 |
 | **D06** Sonuç grafiği | D05'ten sonra | Olay başına yığılmış çubuk (4 aralık) + exec/preempt ayrımı; `lost` olaylar işaretli | UI-08 |
+| **D07** Deadline çizgisi | Deadline'ı aşan olay içeren bir döküm (ör. S5) | 20 ms'de kesikli çizgi; aşan çubuklar kırmızı çerçeveli; özetteki aşan sayısı CSV'den sayılanla aynı. Deadline 5 ms'ye çekilince çizgi ve sayı hemen güncellenir | UI-11 |
 
 ---
 
@@ -299,7 +300,7 @@ hafta-01/
 | SCN-01 | T03, T05 | raw/T03, raw/T05 |
 | SCN-02 | E00…E05 (V1) | S0.csv…S5.csv |
 | SCN-03 | T01 | raw/T01 |
-| UI-01 … UI-06, UI-08 | D01 … D04, D06 | ui/ |
+| UI-01 … UI-06, UI-08, UI-11 | D01 … D04, D06, D07 | ui/ |
 | UI-02, UI-05 | U07 | unit |
 | UI-07 | U08, D05 | unit, S2.csv |
 | UI-09 | R01 | test-results.md |
@@ -324,7 +325,7 @@ Tasarım §12'deki her adım, aşağıdaki testler geçmeden tamamlanmış sayı
 | 6 `app_meas` t₀…t₄ | U08, T12, T13, T15, T16 |
 | 7 Trace kancaları | U10, T21, T22, T23 |
 | 8 CPU yükü, stats, MEM | T04, T05, T06, T17, T18, T24, T25 |
-| 9 PC arayüzü | U07, D01…D06, T10 |
+| 9 PC arayüzü | U07, D01…D07, T10 |
 | 10 Analiz + dokümanlar | U09, R01, R03, E00…E06 |
 
 ---
@@ -347,3 +348,4 @@ Tasarım §12'deki her adım, aşağıdaki testler geçmeden tamamlanmış sayı
 | 1.3 | 2026-09-26 | T12'ye t₄−t₃ fiziksel alt sınır kontrolü eklendi |
 | 1.4 | 2026-09-26 | U10 (kanca muhasebesi, kartsız) eklendi; T21 adım 7'de S3'te, adım 8'den sonra S5'te; T23 ölçüm yöntemi |
 | 1.5 | 2026-09-26 | T18 ikiye ayrıldı: T18a büyük taşma (HardFault, karakterizasyon), T18b küçük taşma (SYS-05 doğrulaması) |
+| 1.6 | 2026-09-30 | D07 deadline çizgisi (UI-11) |

@@ -29,6 +29,18 @@ class Dump:
     complete: bool = False
 
 
+def deadline_summary(rows, deadline_us):
+    """UI-11: d_Total deadline karşılaştırması (yalnızca gözlem, ölçüt değil).
+
+    rows: csv_writer.row_for çıktıları. Kayıp olayların (lost ≠ 0) d_Total'i yoktur;
+    aşım sayısına katılmaz, ayrıca sayılır.
+    """
+    valid = [r for r in rows if r["lost"] == 0 and r["d_Total_us"] != ""]
+    over = [r["event_id"] for r in valid if r["d_Total_us"] > deadline_us]
+    return {"exceeded": over, "n_valid": len(valid), "n_lost": len(rows) - len(valid),
+            "max_us": max((r["d_Total_us"] for r in valid), default=None)}
+
+
 class Session:
     def __init__(self):
         self.state = UNKNOWN

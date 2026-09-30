@@ -3,7 +3,7 @@
 | Alan | Değer |
 |---|---|
 | Doküman | `hafta-01/docs/specs/01-requirements.md` |
-| Sürüm | 1.2 (ONAYLANDI — 2026-09-25) |
+| Sürüm | 1.3 (ONAYLANDI — 2026-09-30) |
 | Tarih | 2026-09-24 |
 | Süreç | Requirements → Implementation → Test → Evidence |
 | Sonraki doküman | `02-design.md` (bu doküman onaylanınca) |
@@ -186,6 +186,7 @@ t₀…t₄ yalnızca hangi aşamada ne kadar kalındığını gösterir; bir ar
 | UI-08 | Yanıt süreleri grafiğe dökülecek: olay başına `d_Total` ve bileşenleri (yığılmış çubuk), ayrıca `bt_exec_us`/`bt_preempt_us` ayrımı; kayıp olaylar işaretlenecek. | M | D |
 | UI-09 | Arayüz ölçüme karışmayacak: tüm süreler MCU damgalarından hesaplanacak, PC'nin alış zamanı ölçüm olarak kullanılmayacak. | M | I |
 | UI-10 | Çevrimdışı analiz betiği `S0..S5.csv` dosyalarından `summary.csv` ve `analysis/plots/*.png` üretecek. | M | T |
+| UI-11 | Sonuç grafiğinde `d_Total` için bir deadline çizgisi gösterilecek (varsayılan 20 ms, arayüzden değiştirilebilir). Deadline'ı aşan olaylar işaretlenecek, aşan olay sayısı ve en büyük `d_Total` yazılacak. Deadline bir gözlem aracıdır: koşunun geçerliliğini (V1…V6) etkilemez. | S | D |
 
 ### 5.8 Teslim ve dokümantasyon (DOC)
 
@@ -253,3 +254,4 @@ Aralıkların tanımı §5.5.1'de, görev değişimi alanlarının tanımı §5.
 | 1.0 | 2026-09-25 | Kursiyer onayı; değişiklik yok |
 | 1.1 | 2026-09-25 | Tasarım incelemesinden: buton her durumda algılanır, ölçüm kaydı yalnızca koşuda (TSK-05a, UI-03) |
 | 1.2 | 2026-09-25 | Test planı incelemesinden: firmware sürüm çerçevesi (MSG-09) |
+| 1.3 | 2026-09-30 | Kursiyer isteği: sonuç grafiğinde deadline çizgisi (UI-11) |
